@@ -119,7 +119,7 @@ class MonitorService:
             session=self.session,
             reloaded=result.reloaded,
             status=self._status(now),
-            message=self._message(now, result.skipped),
+            message=self._message(result.skipped),
         )
 
     # ------------------------------------------------------------------- status
@@ -140,7 +140,7 @@ class MonitorService:
         elapsed = (now - latest.dt).total_seconds()
         return STATUS_RUNNING if elapsed <= self.idle_threshold_sec() else STATUS_IDLE
 
-    def _message(self, now: datetime, skipped: int) -> str:
+    def _message(self, skipped: int) -> str:
         latest = self.history.latest()
         if latest is None:
             return "データなし"
