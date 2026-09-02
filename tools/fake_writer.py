@@ -66,8 +66,10 @@ def data_line(shot_no: int, when: datetime, peaks: list[float], interval: float)
         fields[_col("section_average", i)] = f"{p * 0.62:.2f}"
         fields[_col("section_integral_1", i)] = f"{p * 0.63:.2f}"
         fields[_col("section_integral_2", i)] = f"{p * 0.63:.2f}"
+        fields[_col("pointMonitor", i)] = f"{p * 0.55:.2f}"
         fields[_col("eject_Monitor", i)] = f"{p * 0.43:.2f}"
         fields[_col("RisingTime", i)] = f"{1.1 + p * 0.004:.3f}"
+        fields[_col("FallingTime", i)] = f"{3.0 + p * 0.01:.3f}"
     return ",".join(fields) + ","
 
 
