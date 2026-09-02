@@ -27,7 +27,7 @@ DIST = ROOT / "dist"
 BUILD = ROOT / "build"
 SPEC = ROOT / "shottrend.spec"
 EXE = DIST / "shottrend.exe"
-BUNDLE = [ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "config.example.json"]
+BUNDLE = [ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "LICENSE", ROOT / "config.example.json"]
 
 
 def run_pyinstaller() -> None:

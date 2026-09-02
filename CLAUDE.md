@@ -10,7 +10,7 @@
 ## 開発と実行
 
 - **依存は標準ライブラリのみ**。この方針を崩さない。現場PCに置いて `py app.pyw` で動くことが最大の価値
-- 開発は WSL、実行は **Windows 側の Python 3.12**（`C:/Users/<user>/AppData/Local/Programs/Python/Python312/python.exe`）
+- 開発は WSL、実行は **Windows 側の Python 3.12**（`%LOCALAPPDATA%\Programs\Python\Python312\python.exe`）
   - PATH 先頭の `python` は Hermes の venv なので使わない。scoop に python は入っていない
   - WSL 上のコードを Windows から動かすなら `\\wsl.localhost\<WSL_DISTRO_NAME>\home\<user>\ClaudeCode\shottrend\app.pyw`。ディストロ名はハードコードせず `$WSL_DISTRO_NAME` を使う
 - テストと lint は WSL 側の `.venv` で回す。**`.venv` は Python 3.12**（`uv venv --python 3.12 .venv`）。Ubuntu 22.04 の `python3` は 3.10 で `requires-python >=3.12` に弾かれる
@@ -93,9 +93,9 @@ object is not callable` で初期化ごと死ぬ。属性の代入は必ず `sup
 .venv/bin/python -c "
 from pathlib import Path
 from shottrend.core.csvsource import SummaryCsvReader
-f = Path('/mnt/c/Users/<user>/Documents/MPS08B_Application_1_3_0_5/MMS_DATA/20260821_setting001_20260831/20260821_setting001_20260831.csv')
+f = Path('/mnt/c/Users/<user>/Documents/MPS08B_Application_1_3_0_5/MMS_DATA/<設定名>_<日付>/<設定名>_<日付>.csv')
 r = SummaryCsvReader(f).read_new()
-print(len(r.shots), r.skipped)  # 241 0 になるはず
+print(len(r.shots), r.skipped)  # skipped は 0 になるはず
 "
 ```
 

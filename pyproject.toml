@@ -7,6 +7,8 @@ name = "shottrend"
 dynamic = ["version"]
 description = "Shot-to-shot trend monitor for one-row-per-shot CSV logs. Supports Futaba MPS08B (Mold Marshalling System)."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "shostako" }]
 keywords = ["injection-molding", "cavity-pressure", "shot-monitoring", "mps08b", "mold-marshalling-system", "trend"]
@@ -17,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
 ]
 # 標準ライブラリのみで動く (tkinter は Python 同梱)
 dependencies = []
