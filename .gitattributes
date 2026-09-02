@@ -1,0 +1,5 @@
+# WSL と Windows の両方から触るので改行を正規化する
+* text=auto
+
+# テスト用の合成CSVは MPS08B の実出力を模すため CRLF を保持する
+tests/data/*.csv -text

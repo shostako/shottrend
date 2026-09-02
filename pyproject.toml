@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shot-monitor"
+version = "0.1.0"
+description = "Realtime shot-to-shot cavity pressure peak monitor for Futaba MPS08B (Mold Marshalling System)."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "shostako" }]
+keywords = ["injection-molding", "cavity-pressure", "mps08b", "mold-marshalling-system", "monitoring"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Manufacturing",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+# 標準ライブラリのみで動く (tkinter は Python 同梱)
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.5",
+]
+
+[tool.setuptools]
+packages = ["core", "ui"]
+
+# ---------- ruff ----------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", ".venv-win", "logs", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]  # line-length is enforced by the formatter
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------- pytest ----------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

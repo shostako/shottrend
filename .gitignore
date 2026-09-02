@@ -1,0 +1,15 @@
+# venv (OS跨ぎで可搬でないため追跡しない)
+.venv/
+.venv-win/
+
+# 実行時に生成されるもの
+config.json
+logs/*.log
+logs/*.log.*
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
