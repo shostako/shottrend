@@ -35,7 +35,10 @@ def app_dir() -> Path:
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
+    # このファイルは <app_dir>/shottrend/core/config.py。parents[0]=core, [1]=shottrend,
+    # [2]=app_dir。パッケージを動かしたらここも動かす（改名時に parent.parent のまま
+    # 残して config.json を見失った）
+    return Path(__file__).resolve().parents[2]
 
 
 def config_path() -> Path:
