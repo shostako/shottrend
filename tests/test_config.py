@@ -37,4 +37,4 @@ def test_app_dir_is_the_directory_holding_app_pyw():
     """ソース実行時の設定の置き場は app.pyw の隣。パッケージを動かすとここがずれる。"""
     d = app_dir()
     assert (d / "app.pyw").is_file(), d
-    assert d.name != "shottrend"
+    assert not (d / "core").is_dir()  # パッケージ内 (shottrend/) を指していない
