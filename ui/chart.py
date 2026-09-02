@@ -14,6 +14,8 @@ import math
 import tkinter as tk
 
 from core.history import find_gaps
+from core.metrics import DEFAULT_METRIC
+from core.metrics import metric as metric_of
 from core.models import Shot
 
 from . import theme
@@ -71,16 +73,24 @@ class ShotChart(tk.Canvas):
         self._shots: list[Shot] = []
         self._channels: list[int] = []
         self._kind = "line"
+        self._metric = metric_of(DEFAULT_METRIC)
         self._resize_job: str | None = None
         self.bind("<Configure>", self._on_configure)
 
     # ------------------------------------------------------------------ public
 
-    def set_data(self, shots: list[Shot], channels: list[int], kind: str) -> None:
+    def set_data(
+        self, shots: list[Shot], channels: list[int], kind: str, metric_key: str = DEFAULT_METRIC
+    ) -> None:
         self._shots = shots
         self._channels = channels
         self._kind = kind if kind in ("line", "bar") else "line"
+        self._metric = metric_of(metric_key)
         self.redraw()
+
+    def _v(self, shot: Shot, ch: int) -> float:
+        """選択中の項目の値。"""
+        return shot.value(self._metric.key, ch)
 
     # ----------------------------------------------------------------- resize
 
@@ -107,7 +117,7 @@ class ShotChart(tk.Canvas):
         )
 
     def _values(self) -> list[float]:
-        return [s.peak(c) for s in self._shots for c in self._channels]
+        return [self._v(s, c) for s in self._shots for c in self._channels]
 
     def _y_domain(self) -> tuple[float, float]:
         values = self._values()
@@ -165,6 +175,8 @@ class ShotChart(tk.Canvas):
 
     def _draw_grid(self, left, top, right, bottom, y_min, y_max, y_at) -> None:
         step = _nice_step(y_max - y_min)
+        # 目盛の桁数は間隔から決める。{v:g} だと 1.4 と 1.42 が混在して読みにくい
+        decimals = max(0, -math.floor(math.log10(step)))
         v = math.ceil(y_min / step) * step
         while v <= y_max + 1e-9:
             y = y_at(v)
@@ -172,7 +184,7 @@ class ShotChart(tk.Canvas):
             self.create_text(
                 left - 8,
                 y,
-                text=f"{v:g}",
+                text=f"{v:.{decimals}f}",
                 anchor="e",
                 fill=theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
@@ -181,7 +193,12 @@ class ShotChart(tk.Canvas):
         self.create_line(left, top, left, bottom, fill=theme.AXIS)
         self.create_line(left, bottom, right, bottom, fill=theme.AXIS)
         self.create_text(
-            left - 8, top - 14, text="MPa", anchor="e", fill=theme.ON_PLOT_DIM, font=theme.F_SMALL
+            left - 8,
+            top - 14,
+            text=self._metric.unit,
+            anchor="e",
+            fill=theme.ON_PLOT_DIM,
+            font=theme.F_SMALL,
         )
 
     def _draw_lines(self, x_at, y_at, gaps: set[int]) -> None:
@@ -195,11 +212,11 @@ class ShotChart(tk.Canvas):
                 if i in gaps and segment:
                     self._flush_segment(segment, color)
                     segment = []
-                segment.extend((x_at(i), y_at(shot.peak(ch))))
+                segment.extend((x_at(i), y_at(self._v(shot, ch))))
             self._flush_segment(segment, color)
 
             for i, shot in enumerate(self._shots):
-                x, y = x_at(i), y_at(shot.peak(ch))
+                x, y = x_at(i), y_at(self._v(shot, ch))
                 self.create_oval(
                     x - radius, y - radius, x + radius, y + radius, fill=color, outline=""
                 )
@@ -219,7 +236,7 @@ class ShotChart(tk.Canvas):
                 x0 = x0_group + bar_w * k
                 self.create_rectangle(
                     x0,
-                    y_at(shot.peak(ch)),
+                    y_at(self._v(shot, ch)),
                     x0 + bar_w * 0.86,
                     base_y,
                     fill=theme.ch_color(ch),
@@ -284,7 +301,7 @@ class ShotChart(tk.Canvas):
         """
         last = self._shots[-1]
         x = x_at(n - 1)
-        ys = [y_at(last.peak(ch)) for ch in self._channels]
+        ys = [y_at(self._v(last, ch)) for ch in self._channels]
 
         for ch, y in zip(self._channels, ys, strict=True):
             self.create_oval(
@@ -301,7 +318,7 @@ class ShotChart(tk.Canvas):
             self.create_text(
                 x + dx,
                 ly,
-                text=f"{last.peak(ch):.2f}",
+                text=self._metric.fmt(self._v(last, ch)),
                 anchor=anchor,
                 fill=theme.ch_color(ch),
                 font=theme.F_STAT,

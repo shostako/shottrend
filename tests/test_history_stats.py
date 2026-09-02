@@ -7,9 +7,11 @@ from core.models import Shot
 from core.stats import composite, window_stats
 
 
-def mk(no: int, ch01: float = 10.0, ch02: float = 20.0, *, peaks=None) -> Shot:
+def mk(no: int, ch01: float = 10.0, ch02: float = 20.0, *, peaks=None, **metrics) -> Shot:
     values = peaks if peaks is not None else (ch01, ch02)
-    return Shot(no, datetime(2026, 9, 1, 10, 0, 0), 21.9, tuple(values))
+    data = {"peak": tuple(values)}
+    data.update({k: tuple(v) for k, v in metrics.items()})
+    return Shot(no, datetime(2026, 9, 1, 10, 0, 0), 21.9, data)
 
 
 def test_duplicate_shot_no_is_ignored():
@@ -72,6 +74,24 @@ def test_composite_with_many_channels():
     # 対象 ch を絞れる
     assert composite(s, "max", [0, 1]) == 20.0
     assert composite(s, "diff", [1, 2]) == 10.0
+
+
+def test_composite_follows_selected_metric():
+    """項目を切り替えると合成値もその項目で計算される。"""
+    s = mk(1, peaks=(60.0, 65.0), peak_time=(1.4, 1.6), integral=(140.0, 150.0))
+    assert composite(s, "max", [0, 1]) == 65.0
+    assert composite(s, "max", [0, 1], metric="peak_time") == 1.6
+    assert round(composite(s, "diff", [0, 1], metric="integral"), 2) == 10.0
+    # CSV に無い項目は 0.0 で埋まる
+    assert composite(s, "max", [0, 1], metric="RisingTime") == 0.0
+
+
+def test_used_channels_is_judged_by_peak_regardless_of_metric():
+    """センサ接続の判定はピークで行い、表示項目に左右されない。"""
+    h = ShotHistory()
+    # CH03 は peak_time だけ非ゼロ（そんな行は実機では出ないが、判定基準の確認）
+    h.add_many([mk(1, peaks=(50.0, 51.0, 0.0), peak_time=(1.4, 1.5, 9.9))])
+    assert h.used_channels() == [0, 1]
 
 
 def test_used_channels_detects_connected_sensors():

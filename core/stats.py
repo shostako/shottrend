@@ -6,6 +6,7 @@ import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from .metrics import DEFAULT_METRIC
 from .models import Shot
 
 #: テーブルの合成値列のモード。default は "max"。
@@ -13,16 +14,22 @@ COMPOSITE_MODES = ("max", "min", "avg", "diff")
 COMPOSITE_LABELS = {"max": "最大", "min": "最小", "avg": "平均", "diff": "差"}
 
 
-def composite(shot: Shot, mode: str, channels: Sequence[int] | None = None) -> float:
+def composite(
+    shot: Shot,
+    mode: str,
+    channels: Sequence[int] | None = None,
+    metric: str = DEFAULT_METRIC,
+) -> float:
     """1 ショット内の使用中チャンネルから代表値を作る。
 
     channels を渡さない場合は全チャンネルを対象にする。diff は最大と最小の
-    差（= レンジ）。2ch なら従来どおり 2 本の差と一致する。
+    差（= レンジ）。2ch なら従来どおり 2 本の差と一致する。metric で対象の
+    項目を選ぶ（既定はピーク）。
     """
     if channels is None:
-        values = list(shot.peaks)
+        values = list(shot.values.get(metric, ()))
     else:
-        values = [shot.peak(i) for i in channels]
+        values = [shot.value(metric, i) for i in channels]
     if not values:
         return 0.0
     if mode == "min":

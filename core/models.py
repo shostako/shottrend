@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+
+from .metrics import DEFAULT_METRIC
 
 # MPS08B のサマリ CSV が吐く DateTime 列の形式: 2026/09/01 13:55:46
 DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
@@ -23,30 +25,34 @@ MAX_CHANNELS = 32
 class Shot:
     """1 ショット分の計測結果。shot_no が一意キー。
 
-    peaks は CH01 から順に並ぶ。実際に何 ch 取れるかは CSV のヘッダ次第で、
-    センサが 2 本しか繋がっていなくても本体は 8ch 分の列を書く（未接続は 0.0）。
+    values は項目キー（`core.metrics`）→ CH01 から順に並んだ値の列。実際に
+    何 ch 取れるかは CSV のヘッダ次第で、センサが 2 本しか繋がっていなくても
+    本体は 8ch 分の列を書く（未接続は 0.0）。ピーク（"peak"）は必ず入る。
+    他の項目は CSV に列が無ければ空のまま。
     """
 
     shot_no: int
     dt: datetime
     interval: float
-    peaks: tuple[float, ...]
+    values: dict[str, tuple[float, ...]] = field(default_factory=dict)
 
     @property
     def time_text(self) -> str:
         return self.dt.strftime("%H:%M:%S")
 
+    @property
+    def peaks(self) -> tuple[float, ...]:
+        """ピーク値の列。センサ接続の判定にも使う基準の項目。"""
+        return self.values.get(DEFAULT_METRIC, ())
+
+    def value(self, key: str, index: int) -> float:
+        """項目キーと 0 始まりのチャンネル番号で値を引く。無ければ 0.0。"""
+        seq = self.values.get(key, ())
+        return seq[index] if 0 <= index < len(seq) else 0.0
+
     def peak(self, index: int) -> float:
-        """0 始まりのチャンネル番号で値を引く。範囲外は 0.0。"""
-        return self.peaks[index] if 0 <= index < len(self.peaks) else 0.0
-
-    @property
-    def ch01(self) -> float:
-        return self.peak(0)
-
-    @property
-    def ch02(self) -> float:
-        return self.peak(1)
+        """0 始まりのチャンネル番号でピーク値を引く。範囲外は 0.0。"""
+        return self.value(DEFAULT_METRIC, index)
 
 
 @dataclass(frozen=True, slots=True)

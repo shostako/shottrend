@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from .metrics import DEFAULT_METRIC, METRIC_KEYS, column_name
 from .models import DATETIME_FORMAT, MAX_CHANNELS, Shot
 
 log = logging.getLogger(__name__)
@@ -41,29 +42,52 @@ COL_SHOT = "Shot"
 REQUIRED_COLUMNS = (COL_DATETIME, COL_INTERVAL, COL_SHOT)
 
 
-def peak_column(ch_index: int) -> str:
-    """0 始まりのチャンネル番号に対応するピーク値の列名。"""
-    return f"CH{ch_index + 1:02d}_peak"
-
-
 @dataclass(frozen=True)
 class ColumnMap:
-    """必要な列の位置。ヘッダ行を見るたびに作り直す。"""
+    """必要な列の位置。ヘッダ行を見るたびに作り直す。
+
+    metrics は項目キー → CH01 から順に並んだ列位置。ピークは必ずある。
+    他の項目はヘッダに無ければ空の並び（値は 0.0 で埋まる）。
+    """
 
     base: dict[str, int]
-    peaks: tuple[int, ...]
+    metrics: dict[str, tuple[int, ...]]
+
+    @property
+    def peaks(self) -> tuple[int, ...]:
+        return self.metrics.get(DEFAULT_METRIC, ())
 
     @property
     def channels(self) -> int:
         return len(self.peaks)
 
 
-#: ヘッダに一度も遭遇しないままデータ行に当たった場合のフォールバック。
-#: PPSB v1.3.0.5 の 104 列レイアウトでは CH01_peak が 23 列目から 8 本並ぶ。
+#: PPSB v1.3.0.5 の 104 列レイアウト。先頭 7 列の後に、項目ごとに 8ch 分の列が
+#: この順で並ぶ。ヘッダに一度も遭遇しないままデータ行に当たった場合の
+#: フォールバックに使う（CH01_peak は 23 列目）。
+_LAYOUT_1_3_0_5 = (
+    "error",
+    "integral",
+    "peak",
+    "peak_integral",
+    "peak_time",
+    "section_average",
+    "section_integral_1",
+    "section_integral_2",
+    "pointMonitor",
+    "eject_Monitor",
+    "RisingTime",
+    "FallingTime",
+)
 _FALLBACK_COLMAP = ColumnMap(
     base={COL_DATETIME: 0, COL_INTERVAL: 1, COL_SHOT: 2},
-    peaks=tuple(range(23, 31)),
+    metrics={
+        key: tuple(range(7 + 8 * i, 7 + 8 * (i + 1)))
+        for i, key in enumerate(_LAYOUT_1_3_0_5)
+        if key in METRIC_KEYS
+    },
 )
+assert _FALLBACK_COLMAP.peaks == tuple(range(23, 31))
 
 
 @dataclass
@@ -93,15 +117,30 @@ def _parse_row(fields: list[str], colmap: ColumnMap) -> Shot | None:
         peaks = tuple(float(fields[i]) for i in colmap.peaks)
     except (KeyError, IndexError, ValueError):
         return None
-    return Shot(shot_no=shot_no, dt=dt, interval=interval, peaks=peaks)
+    values: dict[str, tuple[float, ...]] = {DEFAULT_METRIC: peaks}
+    for key, positions in colmap.metrics.items():
+        if key == DEFAULT_METRIC:
+            continue
+        # ピーク以外の項目は、壊れていても行ごと捨てない。監視の主目的である
+        # ピークが読めているなら、その行は出す
+        values[key] = tuple(_float_or_zero(fields, i) for i in positions)
+    return Shot(shot_no=shot_no, dt=dt, interval=interval, values=values)
+
+
+def _float_or_zero(fields: list[str], i: int) -> float:
+    try:
+        return float(fields[i])
+    except (IndexError, ValueError):
+        return 0.0
 
 
 def _build_colmap(header_fields: list[str]) -> ColumnMap | None:
     """ヘッダ行から必要列の位置を引く。
 
-    ピーク値の列は CH01_peak から連番で探し、見つかった分だけ採る。
+    各項目の列は CH01_<key> から連番で探し、見つかった分だけ採る。
     センサが 2 本でも本体は 8ch 分の列を書くし、アンプを増やせば 32ch まで
-    増える。列数を決め打ちにしない。
+    増える。列数を決め打ちにしない。ピークの列が 1 本も無ければヘッダとして
+    認めない。
     """
     index = {name.strip(): i for i, name in enumerate(header_fields)}
     try:
@@ -109,15 +148,19 @@ def _build_colmap(header_fields: list[str]) -> ColumnMap | None:
     except KeyError:
         return None
 
-    peaks: list[int] = []
-    for ch in range(MAX_CHANNELS):
-        pos = index.get(peak_column(ch))
-        if pos is None:
-            break
-        peaks.append(pos)
-    if not peaks:
+    metrics: dict[str, tuple[int, ...]] = {}
+    for key in METRIC_KEYS:
+        positions: list[int] = []
+        for ch in range(MAX_CHANNELS):
+            pos = index.get(column_name(key, ch))
+            if pos is None:
+                break
+            positions.append(pos)
+        if positions:
+            metrics[key] = tuple(positions)
+    if DEFAULT_METRIC not in metrics:
         return None
-    return ColumnMap(base=base, peaks=tuple(peaks))
+    return ColumnMap(base=base, metrics=metrics)
 
 
 class SummaryCsvReader:

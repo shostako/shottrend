@@ -34,7 +34,7 @@ from .widgets import StatusStrip
 
 log = logging.getLogger(__name__)
 
-TITLE = "shot-monitor — MPS08B ピーク値トレンド"
+TITLE = "shot-monitor — MPS08B 演算値トレンド"
 
 #: 状態帯の見え方。本体アプリの「モニタモード」帯の色彩言語に合わせる。
 _STATUS_STYLE = {
@@ -104,6 +104,7 @@ class MonitorApp:
             on_kind=self._on_kind,
             on_composite=self._on_composite,
             on_delta=self._on_delta,
+            on_metric=self._on_metric,
         )
         self.controls.pack(fill="x")
 
@@ -194,13 +195,15 @@ class MonitorApp:
         # 実際にセンサが繋がっている ch だけを扱う。MPS08B は未接続 ch も
         # 0.00 で書き続けるので、列の有無では判別できない。
         channels = self.history.used_channels()
-        stats = [window_stats([s.peak(c) for s in shots]) for c in channels]
+        metric = self.cfg.metric
+        stats = [window_stats([s.value(metric, c) for s in shots]) for c in channels]
 
-        self.controls.set_channels(channels)
-        self.header.set_data(shots, channels, stats, self.cfg.composite_mode, len(self.history))
-        self.chart.set_data(shots, channels, self.cfg.chart_kind)
+        self.header.set_data(
+            shots, channels, stats, self.cfg.composite_mode, metric, len(self.history)
+        )
+        self.chart.set_data(shots, channels, self.cfg.chart_kind, metric)
         self.table.set_channels(channels)
-        self.table.update_rows(shots, self.cfg.composite_mode)
+        self.table.update_rows(shots, self.cfg.composite_mode, metric)
 
     # --------------------------------------------------------------- handlers
 
@@ -216,6 +219,11 @@ class MonitorApp:
 
     def _on_kind(self, kind) -> None:
         self.cfg.chart_kind = str(kind)
+        save_config(self.cfg)
+        self._refresh_views()
+
+    def _on_metric(self, key) -> None:
+        self.cfg.metric = str(key)
         save_config(self.cfg)
         self._refresh_views()
 

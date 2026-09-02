@@ -39,11 +39,16 @@ for _g in _GROUPS:
     HEADER_FIELDS += [f"CH{i:02d}_{_g}" for i in range(1, 9)]
 HEADER_LINE = ",".join(HEADER_FIELDS) + ","
 
-CH01_INDEX = HEADER_FIELDS.index("CH01_peak")
-CH02_INDEX = HEADER_FIELDS.index("CH02_peak")
+
+def _col(group: str, ch: int) -> int:
+    return HEADER_FIELDS.index(f"CH{ch + 1:02d}_{group}")
 
 
 def data_line(shot_no: int, when: datetime, peaks: list[float], interval: float) -> str:
+    """1 行分。ピーク以外の項目も、ピークから派生させたそれらしい値で埋める。
+
+    項目切替の動作確認用なので物理的な正しさは狙っていない。
+    """
     fields = ["0.00"] * len(HEADER_FIELDS)
     fields[0] = when.strftime("%Y/%m/%d %H:%M:%S")
     fields[1] = f"{interval:.2f}"
@@ -52,8 +57,17 @@ def data_line(shot_no: int, when: datetime, peaks: list[float], interval: float)
     fields[4] = ""
     fields[5] = ""
     fields[6] = ""
-    for i, v in enumerate(peaks):
-        fields[CH01_INDEX + i] = f"{v:.2f}"
+    for i, p in enumerate(peaks):
+        fields[_col("error", i)] = "-"
+        fields[_col("peak", i)] = f"{p:.2f}"
+        fields[_col("integral", i)] = f"{p * 2.2:.2f}"
+        fields[_col("peak_integral", i)] = f"{p * 0.13:.2f}"
+        fields[_col("peak_time", i)] = f"{1.2 + p * 0.004:.3f}"
+        fields[_col("section_average", i)] = f"{p * 0.62:.2f}"
+        fields[_col("section_integral_1", i)] = f"{p * 0.63:.2f}"
+        fields[_col("section_integral_2", i)] = f"{p * 0.63:.2f}"
+        fields[_col("eject_Monitor", i)] = f"{p * 0.43:.2f}"
+        fields[_col("RisingTime", i)] = f"{1.1 + p * 0.004:.3f}"
     return ",".join(fields) + ","
 
 
