@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           python - <<'PY' > release_notes.md
-          import re, os
+          import re
           from core.version import __version__
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"^## \[{re.escape(__version__)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
