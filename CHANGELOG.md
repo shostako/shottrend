@@ -9,7 +9,9 @@
 
 - **改名: shot-monitor → ShotTrend（`shottrend`）。** 「1 ショット 1 行の CSV を追従して推移を見る」道具として
   MPS08B 専用の名前から離れた。exe は `shottrend.exe`、zip は `shottrend-<version>-win64.zip`。
-  GitHub の旧 URL はリダイレクトされる。`config.json` の中身と置き場は変わらない
+  GitHub の旧 URL はリダイレクトされる。`config.json` の中身と置き場は変わらない。
+  **既存環境は古い `shot-monitor.exe` を削除し、ショートカットを張り替えること**（2 本残すと同じ
+  `config.json` と `logs/` を奪い合う）
 - パッケージを `shottrend/core` `shottrend/ui` に寄せた。トップレベルの `core` / `ui` は汎用すぎて
   他のパッケージと衝突する
 

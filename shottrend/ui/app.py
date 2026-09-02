@@ -1,6 +1,6 @@
 """アプリ本体。after() ループと各パネルの配線だけを持つ。
 
-判断ロジックは core.MonitorService にあり、ここには置かない。
+判断ロジックは shottrend.core.monitor.MonitorService にあり、ここには置かない。
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 """PyInstaller の定義。`tools/build.py` から呼ぶ（直接 `pyinstaller shottrend.spec` でも可）。
 
 1 ファイルの exe にする。現場 PC に置くのは exe 1 本で、config.json と logs/ は
-exe の隣に作られる（app.pyw と core/config.py の frozen 判定）。
+exe の隣に作られる（shottrend/core/config.py の app_dir() の frozen 判定）。
 
 console=False: pythonw 相当。stderr はどこにも出ないので、起動しないときは
 logs/app.log を見る（app.pyw が例外を捕まえてログに残す）。

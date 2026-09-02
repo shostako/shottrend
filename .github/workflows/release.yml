@@ -70,6 +70,8 @@ jobs:
         with:
           name: ShotTrend ${{ github.ref_name }}
           body_path: release_notes.md
+          # build.py の出力名と glob がずれたら「資産無しの Release」を緑で出さず止める
+          fail_on_unmatched_files: true
           files: |
             dist/shottrend.exe
             dist/shottrend-*-win64.zip

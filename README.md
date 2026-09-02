@@ -28,7 +28,9 @@ MPS08B には純正のトレンドビューアがあり、ピーク値の折れ�
 
 起動しない・すぐ消えるときは `logs\app.log` を見る。exe はコンソールを持たないので、エラーはすべてここに出る。
 
-更新は zip を落とし直して `shottrend.exe` だけ上書きすればよい。`config.json` はそのまま使える。
+更新は Releases の `shottrend.exe` 単体を落として上書きすればよい（zip を展開し直す必要はない）。`config.json` はそのまま使える。
+
+**v0.2.0 以前（`shot-monitor.exe`）から上げる場合**: 同じフォルダに `shottrend.exe` を置いたら、古い `shot-monitor.exe` は削除し、デスクトップ等のショートカットは張り替える。2 本とも残すとどちらを起動しても同じ `config.json` と `logs\` を奪い合う。
 
 ### ソースから
 

@@ -30,8 +30,8 @@ build = [
     "pyinstaller>=6.0",
 ]
 
-[tool.setuptools]
-packages = ["shottrend", "shottrend.core", "shottrend.ui"]
+[tool.setuptools.packages.find]
+include = ["shottrend*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "shottrend.core.version.__version__" }

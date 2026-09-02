@@ -15,13 +15,16 @@ import sys
 import tkinter as tk
 from pathlib import Path
 
-if getattr(sys, "frozen", False):
-    # onefile の exe は起動ごとに一時ディレクトリへ展開される。そこにログを
-    # 書くと終了時に消えるので、置き場は exe の隣にする（core.config も同じ判定）
-    APP_DIR = Path(sys.executable).resolve().parent
-else:
-    APP_DIR = Path(__file__).resolve().parent
-    sys.path.insert(0, str(APP_DIR))
+if not getattr(sys, "frozen", False):
+    # ソース実行: パッケージを見つけられるように、このファイルの隣を先頭に足す
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from shottrend.core.config import app_dir  # noqa: E402
+
+# ログと設定の置き場。判定は core.config.app_dir() の 1 箇所に寄せる。
+# frozen なら exe の隣（onefile は起動ごとに一時ディレクトリへ展開されるので
+# __file__ 基準だと終了時に消える）、ソース実行なら app.pyw の隣
+APP_DIR = app_dir()
 
 LOG_DIR = APP_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
