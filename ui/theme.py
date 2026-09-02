@@ -45,6 +45,7 @@ ALERT_BAR = "#FF1493"  # 本体下部の帯と同じ
 
 SEL_BG = "#D6ECF7"  # 選択行
 SEL_EDGE = "#6FC4DF"
+CHIP_EDGE = "#9AA6B8"  # 明るい地で黄やシアンのチップが消えないように縁を付ける
 
 # --- グラフ内（黒地の上） ---
 GRID = "#2A2A2A"
@@ -53,12 +54,48 @@ AXIS = "#5A5A5A"
 GAP_LINE = "#5A5A5A"
 
 # --- チャンネル ---
-CH01 = "#FF0000"
-CH02 = "#FFA500"
-CH_COLORS = (CH01, CH02)
-CH_NAMES = ("CH01", "CH02")
-#: 明るい地の上では純赤・純橙が浮くので、文字用は少し沈めた版を使う
-CH_TEXT = ("#D40000", "#C97800")
+#: MPS08B 本体の init.xml にある waveColor と同じ 8 色。
+#: 本体はアンプ 1 台 8ch ごとにこの並びを繰り返す（32ch まで）。
+WAVE_COLORS = (
+    "#FF0000",  # 赤
+    "#FFA500",  # 橙
+    "#FFFF00",  # 黄
+    "#00FF00",  # 緑
+    "#32CD32",  # LimeGreen
+    "#008000",  # 濃緑
+    "#00FFFF",  # シアン
+    "#0000FF",  # 青
+)
+#: 明るい地の上で読める沈めた版。黄・シアン・緑は白地だとほぼ見えない
+WAVE_TEXT_COLORS = (
+    "#D40000",
+    "#C97800",
+    "#9A8500",
+    "#149014",
+    "#2A9E2A",
+    "#006800",
+    "#0091A6",
+    "#1240C8",
+)
+
+CH01 = WAVE_COLORS[0]
+CH02 = WAVE_COLORS[1]
+
+
+def ch_name(index: int) -> str:
+    """0 始まりのチャンネル番号を CH01 形式にする。"""
+    return f"CH{index + 1:02d}"
+
+
+def ch_color(index: int) -> str:
+    """グラフ（黒地）で使う色。8ch ごとに巡回する。"""
+    return WAVE_COLORS[index % len(WAVE_COLORS)]
+
+
+def ch_text_color(index: int) -> str:
+    """明るい地の上で使う色。"""
+    return WAVE_TEXT_COLORS[index % len(WAVE_TEXT_COLORS)]
+
 
 UP = "#D32F2F"  # 前ショットより上がった
 DOWN = "#1565C0"  # 下がった

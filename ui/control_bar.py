@@ -19,28 +19,67 @@ _KIND_LABELS = {"line": "折れ線", "bar": "棒"}
 
 
 class _Legend(tk.Canvas):
-    """CH の色見本。本体アプリのチャンネル一覧の色チップに倣う。"""
+    """使用中 ch の色見本。本体アプリのチャンネル一覧の色チップに倣う。"""
 
-    WIDTH = 150
     HEIGHT = 28
+    ITEM_W = 68
+    #: これを超えたら個別に並べず「n ch」とだけ出す
+    MAX_ITEMS = 6
 
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(
             parent,
-            width=self.WIDTH,
+            width=self.ITEM_W * 2,
             height=self.HEIGHT,
             background=theme.BG,
             highlightthickness=0,
             bd=0,
         )
-        x = 6
-        for name, color in zip(theme.CH_NAMES, theme.CH_COLORS, strict=True):
-            cy = self.HEIGHT / 2
-            self.create_rectangle(x, cy - 5, x + 10, cy + 5, fill=color, outline="")
+        self._channels: list[int] = []
+
+    def set_channels(self, channels: list[int]) -> None:
+        if channels == self._channels:
+            return
+        self._channels = list(channels)
+        self._redraw()
+
+    def _redraw(self) -> None:
+        self.delete("all")
+        cy = self.HEIGHT / 2
+        chs = self._channels
+        if len(chs) > self.MAX_ITEMS:
+            self.configure(width=self.ITEM_W * 2)
+            x = 6
+            for ch in chs[: self.MAX_ITEMS - 1]:
+                self.create_rectangle(
+                    x, cy - 5, x + 9, cy + 5, fill=theme.ch_color(ch), outline=theme.CHIP_EDGE
+                )
+                x += 13
             self.create_text(
-                x + 16, cy, text=name, anchor="w", fill=theme.MUTED, font=theme.F_SMALL
+                x + 4,
+                cy,
+                text=f"計 {len(chs)} ch",
+                anchor="w",
+                fill=theme.MUTED,
+                font=theme.F_SMALL,
             )
-            x += 76
+            return
+
+        self.configure(width=max(self.ITEM_W, self.ITEM_W * len(chs)))
+        x = 6
+        for ch in chs:
+            self.create_rectangle(
+                x, cy - 5, x + 10, cy + 5, fill=theme.ch_color(ch), outline=theme.CHIP_EDGE
+            )
+            self.create_text(
+                x + 16,
+                cy,
+                text=theme.ch_name(ch),
+                anchor="w",
+                fill=theme.MUTED,
+                font=theme.F_SMALL,
+            )
+            x += self.ITEM_W
 
 
 class ControlBar(ttk.Frame):
@@ -73,7 +112,11 @@ class ControlBar(ttk.Frame):
             46,
         )
 
-        _Legend(self).pack(side="right")
+        self.legend = _Legend(self)
+        self.legend.pack(side="right")
+
+    def set_channels(self, channels: list[int]) -> None:
+        self.legend.set_channels(channels)
 
     def _group(self, label: str, options, initial, callback, seg_width: int):
         ttk.Label(self, text=label, style="MutedBg.TLabel").pack(side="left", padx=(0, 6))

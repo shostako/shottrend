@@ -43,7 +43,7 @@ CH01_INDEX = HEADER_FIELDS.index("CH01_peak")
 CH02_INDEX = HEADER_FIELDS.index("CH02_peak")
 
 
-def data_line(shot_no: int, when: datetime, ch01: float, ch02: float, interval: float) -> str:
+def data_line(shot_no: int, when: datetime, peaks: list[float], interval: float) -> str:
     fields = ["0.00"] * len(HEADER_FIELDS)
     fields[0] = when.strftime("%Y/%m/%d %H:%M:%S")
     fields[1] = f"{interval:.2f}"
@@ -52,8 +52,8 @@ def data_line(shot_no: int, when: datetime, ch01: float, ch02: float, interval: 
     fields[4] = ""
     fields[5] = ""
     fields[6] = ""
-    fields[CH01_INDEX] = f"{ch01:.2f}"
-    fields[CH02_INDEX] = f"{ch02:.2f}"
+    for i, v in enumerate(peaks):
+        fields[CH01_INDEX + i] = f"{v:.2f}"
     return ",".join(fields) + ","
 
 
@@ -68,6 +68,9 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=2.0, help="1 ショットの間隔[秒]")
     ap.add_argument("--start-shot", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument(
+        "--channels", type=int, default=2, help="値を入れる ch 数 (1-8)。多 ch の画面確認用"
+    )
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
@@ -81,7 +84,8 @@ def main() -> int:
         append(csv_path, HEADER_LINE)
 
     shot = args.start_shot
-    base01, base02 = 52.0, 55.0
+    nch = max(1, min(args.channels, 8))
+    bases = [50.0 + 3.0 * i for i in range(nch)]
     print(f"writing to {csv_path} (Ctrl+C to stop)")
     try:
         while True:
@@ -92,19 +96,15 @@ def main() -> int:
                 shot += skipped
                 print(f"  -- interruption: header re-inserted, skipped {skipped} shots")
 
-            ch01 = base01 + rng.gauss(0, 1.2)
-            ch02 = base02 + rng.gauss(0, 1.0)
+            peaks = [b + rng.gauss(0, 1.1) for b in bases]
             append(
                 csv_path,
-                data_line(
-                    shot, datetime.now(), ch01, ch02, interval=args.interval + rng.gauss(0, 0.3)
-                ),
+                data_line(shot, datetime.now(), peaks, interval=args.interval + rng.gauss(0, 0.3)),
             )
-            print(f"  shot {shot}  CH01={ch01:.2f}  CH02={ch02:.2f}")
+            print("  shot " + str(shot) + "  " + "  ".join(f"{v:.2f}" for v in peaks))
             shot += 1
             # ゆっくりドリフトさせて傾向が見えるようにする
-            base01 += rng.gauss(0, 0.08)
-            base02 += rng.gauss(0, 0.08)
+            bases = [b + rng.gauss(0, 0.08) for b in bases]
             time.sleep(args.interval)
     except KeyboardInterrupt:
         print("stopped")

@@ -1,7 +1,7 @@
 """ショット履歴の数値テーブル（最新が上）。
 
-列は 2 段構え。既定では素の値だけを出し、前ショットとの差や ch 間の差は
-トグルで出す。列が増えるとぱっと見の認識が鈍るため、常時は出さない。
+列は使用中の ch に合わせて組み直す。差分（前ショットとの差、ch 間のばらつき）
+は既定では出さない。列が増えるとぱっと見の認識が鈍るため。
 
 幅はウィンドウに合わせて全列が均等に伸びる。右端には余白列を置いて、
 最後の数値が枠に張り付かないようにしている。
@@ -17,39 +17,9 @@ from core.stats import COMPOSITE_LABELS, composite
 
 from . import theme
 
-# (key, 見出し, 最小幅, 寄せ)
-_BASE_COLUMNS = (
-    ("shot", "Shot", 70, "e"),
-    ("time", "Time", 92, "center"),
-    ("ch01", "CH01", 84, "e"),
-    ("ch02", "CH02", 84, "e"),
-    ("comp", "最大", 84, "e"),
-    ("interval", "interval", 92, "e"),
-)
-_DELTA_COLUMNS = (
-    ("d01", "ΔCH01", 84, "e"),
-    ("d02", "ΔCH02", 84, "e"),
-    ("diff", "CH01−CH02", 100, "e"),
-)
 #: 右端の余白。最後の数値が枠に張り付くのを防ぐためだけの列
-_PAD_COLUMN = ("pad", "", 16, "center")
-
-ALL_COLUMNS = (*_BASE_COLUMNS, *_DELTA_COLUMNS, _PAD_COLUMN)
-
-#: 差分列を出すときの並び順
-_ORDER_WITH_DELTA = (
-    "shot",
-    "time",
-    "ch01",
-    "d01",
-    "ch02",
-    "d02",
-    "comp",
-    "diff",
-    "interval",
-    "pad",
-)
-_ORDER_PLAIN = ("shot", "time", "ch01", "ch02", "comp", "interval", "pad")
+PAD_KEY = "pad"
+PAD_WIDTH = 16
 
 #: 表示する行数。ウィンドウが画面からはみ出さないよう固定する。
 VISIBLE_ROWS = 8
@@ -68,24 +38,20 @@ class ShotTable(ttk.Frame):
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(parent, style="TFrame")
         self._show_delta = False
+        self._channels: list[int] = []
+        self._composite_mode = "max"
 
         self.tree = ttk.Treeview(
-            self,
-            columns=[c[0] for c in ALL_COLUMNS],
-            show="headings",
-            selectmode="browse",
-            height=VISIBLE_ROWS,
+            self, columns=(), show="headings", selectmode="browse", height=VISIBLE_ROWS
         )
-        for key, title, width, anchor in ALL_COLUMNS:
-            self.tree.heading(key, text=title, anchor=anchor)
-            # 余白列だけは伸ばさない。それ以外はウィンドウ幅を均等に分け合う
-            stretch = key != "pad"
-            self.tree.column(key, width=width, minwidth=width, anchor=anchor, stretch=stretch)
+        vscroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        # ch が増えると列が画面幅に収まらない (8ch + 差分列で 20 列になる)
+        self._hscroll = ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
+        self._hscroll_shown = False
+        self.tree.configure(yscrollcommand=vscroll.set, xscrollcommand=self._on_xscroll)
 
-        scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="left", fill="y")
+        vscroll.pack(side="left", fill="y")
 
         # 最新行を目立たせる。交互行は本体アプリのチャンネル一覧に倣う
         self.tree.tag_configure(
@@ -94,24 +60,71 @@ class ShotTable(ttk.Frame):
         self.tree.tag_configure("odd", background=theme.PANEL_ALT)
         self.tree.tag_configure("gap", foreground=theme.ERR)
 
-        self._apply_display_columns()
+        self._rebuild_columns()
 
-    # ----------------------------------------------------------------- config
+    def _on_xscroll(self, first: str, last: str) -> None:
+        """横スクロールバーは列が入りきらないときだけ出す。
+
+        2ch なら常に収まるので、出しっぱなしにすると場所を食うだけになる。
+        """
+        self._hscroll.set(first, last)
+        needed = float(first) > 0.0 or float(last) < 1.0
+        if needed and not self._hscroll_shown:
+            self._hscroll.pack(side="bottom", fill="x", before=self.tree)
+            self._hscroll_shown = True
+        elif not needed and self._hscroll_shown:
+            self._hscroll.pack_forget()
+            self._hscroll_shown = False
+
+    # ---------------------------------------------------------------- columns
+
+    def set_channels(self, channels: list[int]) -> None:
+        if channels == self._channels:
+            return
+        self._channels = list(channels)
+        self._rebuild_columns()
 
     def set_show_delta(self, show: bool) -> None:
         if show == self._show_delta:
             return
         self._show_delta = show
-        self._apply_display_columns()
+        self._rebuild_columns()
 
-    def _apply_display_columns(self) -> None:
-        order = _ORDER_WITH_DELTA if self._show_delta else _ORDER_PLAIN
-        self.tree.configure(displaycolumns=order)
+    def _column_spec(self) -> list[tuple[str, str, int, str]]:
+        """(key, 見出し, 最小幅, 寄せ) の並びを作る。"""
+        spec: list[tuple[str, str, int, str]] = [
+            ("shot", "Shot", 70, "e"),
+            ("time", "Time", 92, "center"),
+        ]
+        for ch in self._channels:
+            name = theme.ch_name(ch)
+            spec.append((f"ch{ch}", name, 84, "e"))
+            if self._show_delta:
+                spec.append((f"d{ch}", f"Δ{name}", 84, "e"))
+        spec.append(("comp", COMPOSITE_LABELS.get(self._composite_mode, "最大"), 84, "e"))
+        if self._show_delta and len(self._channels) >= 2:
+            spec.append(("spread", "ばらつき", 92, "e"))
+        spec.append(("interval", "interval", 92, "e"))
+        spec.append((PAD_KEY, "", PAD_WIDTH, "center"))
+        return spec
+
+    def _rebuild_columns(self) -> None:
+        spec = self._column_spec()
+        keys = [c[0] for c in spec]
+        self.tree.configure(columns=keys, displaycolumns=keys)
+        for key, title, width, anchor in spec:
+            self.tree.heading(key, text=title, anchor=anchor)
+            # 余白列だけは伸ばさない。それ以外はウィンドウ幅を均等に分け合う
+            self.tree.column(
+                key, width=width, minwidth=width, anchor=anchor, stretch=key != PAD_KEY
+            )
 
     # ------------------------------------------------------------------ rows
 
     def update_rows(self, shots: list[Shot], composite_mode: str) -> None:
-        self.tree.heading("comp", text=COMPOSITE_LABELS.get(composite_mode, "最大"), anchor="e")
+        if composite_mode != self._composite_mode:
+            self._composite_mode = composite_mode
+            self.tree.heading("comp", text=COMPOSITE_LABELS.get(composite_mode, "最大"), anchor="e")
         self.tree.delete(*self.tree.get_children())
 
         # 最新を上にするので逆順で回す
@@ -125,22 +138,17 @@ class ShotTable(ttk.Frame):
             if older is not None and not contiguous and i != 0:
                 tags.append("gap")
 
-            prev01 = older.ch01 if contiguous else None
-            prev02 = older.ch02 if contiguous else None
-            self.tree.insert(
-                "",
-                "end",
-                values=(
-                    s.shot_no,
-                    s.time_text,
-                    f"{s.ch01:.2f}",
-                    f"{s.ch02:.2f}",
-                    f"{composite(s, composite_mode):.2f}",
-                    f"{s.interval:.2f}",
-                    _delta_text(s.ch01, prev01),
-                    _delta_text(s.ch02, prev02),
-                    f"{s.ch01 - s.ch02:+.2f}",
-                    "",
-                ),
-                tags=tags,
-            )
+            values: list[object] = [s.shot_no, s.time_text]
+            for ch in self._channels:
+                values.append(f"{s.peak(ch):.2f}")
+                if self._show_delta:
+                    prev = older.peak(ch) if contiguous else None
+                    values.append(_delta_text(s.peak(ch), prev))
+            values.append(f"{composite(s, composite_mode, self._channels):.2f}")
+            if self._show_delta and len(self._channels) >= 2:
+                peaks = [s.peak(c) for c in self._channels]
+                values.append(f"{max(peaks) - min(peaks):.2f}")
+            values.append(f"{s.interval:.2f}")
+            values.append("")
+
+            self.tree.insert("", "end", values=tuple(values), tags=tags)

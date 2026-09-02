@@ -43,6 +43,29 @@ class ShotHistory:
     def all(self) -> list[Shot]:
         return list(self._by_no.values())
 
+    def channel_count(self) -> int:
+        """CSV から取れているチャンネル数（未接続の 0.0 も含む）。"""
+        latest = self.latest()
+        return len(latest.peaks) if latest else 0
+
+    def used_channels(self) -> list[int]:
+        """実際にセンサが繋がっている ch の番号（0 始まり）。
+
+        履歴の中で一度でも非ゼロなら使用中とみなす。MPS08B は未接続の ch も
+        0.00 で書き続けるため、列の有無では判別できない。
+        """
+        n = self.channel_count()
+        if n == 0:
+            return []
+        used = [False] * n
+        for shot in self._by_no.values():
+            for i, v in enumerate(shot.peaks):
+                if v != 0.0:
+                    used[i] = True
+        found = [i for i, flag in enumerate(used) if flag]
+        # 全部ゼロ（計測直後など）のときは先頭 2ch を仮に出す
+        return found if found else [0, 1][:n]
+
     def tail(self, n: int) -> list[Shot]:
         """直近 n 件を古い順で返す。"""
         if n <= 0:

@@ -191,12 +191,15 @@ class MonitorApp:
 
     def _refresh_views(self) -> None:
         shots = self.history.tail(self.cfg.window_size)
-        stats = [
-            window_stats([s.ch01 for s in shots]),
-            window_stats([s.ch02 for s in shots]),
-        ]
-        self.header.set_data(shots, stats, self.cfg.window_size, len(self.history))
-        self.chart.set_data(shots, self.cfg.chart_kind)
+        # 実際にセンサが繋がっている ch だけを扱う。MPS08B は未接続 ch も
+        # 0.00 で書き続けるので、列の有無では判別できない。
+        channels = self.history.used_channels()
+        stats = [window_stats([s.peak(c) for s in shots]) for c in channels]
+
+        self.controls.set_channels(channels)
+        self.header.set_data(shots, channels, stats, self.cfg.window_size, len(self.history))
+        self.chart.set_data(shots, channels, self.cfg.chart_kind)
+        self.table.set_channels(channels)
         self.table.update_rows(shots, self.cfg.composite_mode)
 
     # --------------------------------------------------------------- handlers
@@ -225,6 +228,8 @@ class MonitorApp:
         self.cfg.show_delta_columns = bool(show)
         save_config(self.cfg)
         self.table.set_show_delta(self.cfg.show_delta_columns)
+        # 列を組み替えたら行も入れ直す。片方だけだと値が 1 列ずれる
+        self._refresh_views()
 
     # ------------------------------------------------------------------ close
 

@@ -261,7 +261,7 @@ class ChannelCard(tk.Canvas):
         self.create_rectangle(1, 12, 5, h - 12, fill=self._color, outline="")
 
         # --- 見出し ---
-        self.create_rectangle(16, 15, 26, 25, fill=self._color, outline="")
+        self.create_rectangle(16, 15, 26, 25, fill=self._color, outline=theme.CHIP_EDGE)
         self.create_text(32, 20, text=self._name, anchor="w", fill=theme.FG, font=theme.F_TITLE)
         self._draw_delta(w - 16, 20)
 
@@ -387,3 +387,75 @@ class InfoCard(tk.Canvas):
             self.create_text(18, y, text=label, anchor="w", fill=theme.DIM, font=theme.F_SMALL)
             self.create_text(w - 18, y, text=value, anchor="e", fill=color, font=theme.F_STAT)
             y += 24
+
+
+class CompactChannelCard(tk.Canvas):
+    """ch が多いときに使う小型カード。
+
+    4ch 以上になると大きいカードは横に並ばない。数値と前ショットとの差だけに
+    絞り、スパークラインと統計は落とす（それらはグラフとテーブルで見る）。
+    """
+
+    WIDTH = 182
+    HEIGHT = 72
+
+    def __init__(self, parent: tk.Misc, name: str, color: str, text_color: str) -> None:
+        super().__init__(
+            parent,
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            background=theme.BG,
+            highlightthickness=0,
+            bd=0,
+        )
+        self._name = name
+        self._color = color
+        self._text_color = text_color
+        self._value: float | None = None
+        self._delta: float | None = None
+        self._redraw()
+
+    def set_data(self, value, delta, series, stats) -> None:  # noqa: ARG002 - 大型版と同じ呼び口にする
+        self._value = value
+        self._delta = delta
+        self._redraw()
+
+    def _redraw(self) -> None:
+        self.delete("all")
+        w, h = self.WIDTH, self.HEIGHT
+        round_rect(self, 1, 1, w - 1, h - 1, 7, fill=theme.PANEL, outline=theme.PANEL_EDGE)
+        self.create_rectangle(1, 9, 4, h - 9, fill=self._color, outline="")
+
+        self.create_rectangle(13, 12, 21, 20, fill=self._color, outline=theme.CHIP_EDGE)
+        self.create_text(27, 16, text=self._name, anchor="w", fill=theme.MUTED, font=theme.F_SMALL)
+
+        if self._value is None:
+            self.create_text(14, 46, text="--.--", anchor="w", fill=theme.DIM, font=theme.F_LARGE)
+            return
+        num = self.create_text(
+            14,
+            46,
+            text=f"{self._value:.2f}",
+            anchor="w",
+            fill=self._text_color,
+            font=theme.F_LARGE,
+        )
+        self.create_text(
+            self.bbox(num)[2] + 4, 51, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_TINY
+        )
+        if self._delta is not None:
+            d = self._delta
+            if abs(d) < 0.005:
+                mark, color = "→", theme.FLAT
+            elif d > 0:
+                mark, color = "▲", theme.UP
+            else:
+                mark, color = "▼", theme.DOWN
+            self.create_text(
+                w - 12,
+                16,
+                text=f"{mark}{abs(d):.2f}",
+                anchor="e",
+                fill=color,
+                font=theme.F_STAT_S,
+            )

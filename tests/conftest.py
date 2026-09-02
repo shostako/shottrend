@@ -38,7 +38,15 @@ assert HEADER_FIELDS.index("CH02_peak") == 24
 assert len(HEADER_FIELDS) == 103  # 末尾カンマを足して 104 列
 
 
-def data_line(shot_no: int, dt: str, ch01: float, ch02: float, interval: float = 21.9) -> str:
+def data_line(
+    shot_no: int,
+    dt: str,
+    ch01: float = 0.0,
+    ch02: float = 0.0,
+    interval: float = 21.9,
+    peaks: tuple[float, ...] | None = None,
+) -> str:
+    """1 データ行。peaks を渡すと CH01 から順にその値を入れる。"""
     fields = [""] * len(HEADER_FIELDS)
     fields[0] = dt
     fields[1] = f"{interval:.2f}"
@@ -46,8 +54,10 @@ def data_line(shot_no: int, dt: str, ch01: float, ch02: float, interval: float =
     fields[3] = "-"
     for i in range(7, len(fields)):
         fields[i] = "0.00"
-    fields[23] = f"{ch01:.2f}"
-    fields[24] = f"{ch02:.2f}"
+    values = peaks if peaks is not None else (ch01, ch02)
+    base = HEADER_FIELDS.index("CH01_peak")
+    for i, v in enumerate(values):
+        fields[base + i] = f"{v:.2f}"
     return ",".join(fields) + ","
 
 
