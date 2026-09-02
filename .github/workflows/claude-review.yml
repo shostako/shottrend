@@ -1,0 +1,57 @@
+name: Claude Auto Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # 下書きのままの PR はレビューしない (ready_for_review で改めて発火する)
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Review pull request
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            この PR をレビューしてください。PR ブランチは作業ディレクトリに
+            チェックアウト済みです。まず CLAUDE.md を読み、このプロジェクト固有の
+            約束に照らして判断してください。特に次の点は重大な違反として扱います。
+
+            - `core/` に tkinter が import されていないか (テストが GUI 環境を要求するようになる)
+            - 標準ライブラリ以外への依存が増えていないか (現場PCで追加インストール無しに動くことが最大の価値)
+            - 絶対パスの埋め込みが無いか (MMS_DATA の場所は config.json から来る)
+            - フォルダ名のソートで最新セッションを判定していないか (判定は CSV の mtime のみ)
+            - チャンネル数を 2 や 8 に決め打ちしていないか (最大 32ch、可変長)
+            - `after()` の予約を `after_cancel` せずに入れ直していないか (多重ループ事故)
+
+            加えて一般的な観点、すなわち正しさ (特に CSV の途中ヘッダ・不完全行・
+            ショット番号の飛びといった既知の癖の扱い)、冪等性、テストの過不足、
+            不要な複雑さを見てください。
+
+            指摘が無ければ「問題なし」と一言で構いません。憶測で問題を作らないこと。
+            回答は日本語で。
+
+            具体的なコード箇所は `mcp__github_inline_comment__create_inline_comment`
+            (`confirmed: true`) でインラインコメントにし、全体所見は `gh pr comment` で
+            投稿してください。GitHub へのコメント投稿のみを行い、レビュー本文を
+            メッセージとして返さないこと。
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
