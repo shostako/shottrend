@@ -15,7 +15,14 @@ from core.config import AppConfig, load_config, save_config
 from core.discovery import DataRootScanner
 from core.history import ShotHistory
 from core.models import Session
-from core.monitor import STATUS_NOROOT, MonitorService
+from core.monitor import (
+    STATUS_ERROR,
+    STATUS_IDLE,
+    STATUS_NODATA,
+    STATUS_NOROOT,
+    STATUS_RUNNING,
+    MonitorService,
+)
 from core.stats import window_stats
 
 from . import theme
@@ -23,10 +30,20 @@ from .chart import ShotChart
 from .control_bar import ControlBar
 from .header_panel import HeaderPanel
 from .shot_table import ShotTable
+from .widgets import StatusStrip
 
 log = logging.getLogger(__name__)
 
 TITLE = "shot-monitor — MPS08B ピーク値トレンド"
+
+#: 状態帯の見え方。本体アプリの「モニタモード」帯の色彩言語に合わせる。
+_STATUS_STYLE = {
+    STATUS_RUNNING: ("監視中", theme.ACCENT_BAR, "#00323C"),
+    STATUS_IDLE: ("停止中", "#FFD54F", "#4A3800"),
+    STATUS_NODATA: ("データなし", "#D8DEE9", "#3A4552"),
+    STATUS_NOROOT: ("データフォルダ未設定", theme.ALERT_BAR, "#FFFFFF"),
+    STATUS_ERROR: ("読み取り異常", theme.ALERT_BAR, "#FFFFFF"),
+}
 
 
 class MonitorApp:
@@ -45,7 +62,7 @@ class MonitorApp:
         root.title(TITLE)
         root.configure(background=theme.BG)
         root.geometry(self.cfg.geometry)
-        root.minsize(900, 640)
+        root.minsize(1000, 700)
 
         style = ttk.Style(root)
         theme.apply_ttk_theme(style)
@@ -73,6 +90,10 @@ class MonitorApp:
         self.root.config(menu=menubar)
 
     def _build_layout(self) -> None:
+        # 本体アプリの上部モード帯に相当。離れた位置からでも状態が読める
+        self.status = StatusStrip(self.root)
+        self.status.pack(fill="x")
+
         self.header = HeaderPanel(self.root, on_session_change=self._on_session_change)
         self.header.pack(fill="x")
 
@@ -86,15 +107,18 @@ class MonitorApp:
         self.controls.pack(fill="x")
 
         body = ttk.Frame(self.root, style="TFrame")
-        body.pack(fill="both", expand=True, padx=14, pady=(6, 10))
+        body.pack(fill="both", expand=True, padx=14, pady=(0, 12))
 
         # 先に下段（テーブル）の領域を確保してから、残り全部をグラフに与える。
         # 逆順に pack すると、ウィンドウが縮んだときにテーブルが先に切られる。
         self.table = ShotTable(body)
-        self.table.pack(side="bottom", fill="x", expand=False, pady=(8, 0))
+        self.table.pack(side="bottom", fill="x", expand=False, pady=(10, 0))
 
-        self.chart = ShotChart(body)
-        self.chart.pack(side="top", fill="both", expand=True)
+        # 黒いグラフが明るい地に浮くので、細い縁で囲んでカードに見せる
+        chart_frame = tk.Frame(body, background=theme.PANEL_EDGE, bd=0, highlightthickness=0)
+        chart_frame.pack(side="top", fill="both", expand=True)
+        self.chart = ShotChart(chart_frame)
+        self.chart.pack(fill="both", expand=True, padx=1, pady=1)
 
     # ------------------------------------------------------------------- data
 
@@ -150,25 +174,26 @@ class MonitorApp:
 
     def _tick_once(self, *, rescan: bool) -> None:
         if not self._data_root_valid():
-            self.header.set_status(STATUS_NOROOT, "MMS_DATA フォルダを選んでください")
+            self._set_status(STATUS_NOROOT, "ファイル > MMS_DATA フォルダを選ぶ")
             return
         result = self.service.poll(now=datetime.now(), rescan=rescan)
         if result.session_changed:
             self._refresh_sessions()
         if result.new_shots or result.session_changed or result.reloaded:
             self._refresh_views()
-        self.header.set_status(result.status, result.message)
+        self._set_status(result.status, result.message)
+
+    def _set_status(self, status: str, message: str) -> None:
+        text, color, fg = _STATUS_STYLE.get(status, ("", theme.ACCENT_BAR, "#00323C"))
+        self.status.set_state(text, message, color, fg)
 
     def _refresh_views(self) -> None:
         shots = self.history.tail(self.cfg.window_size)
-        self.header.set_latest(self.history.latest())
-        self.header.set_stats(
-            self.cfg.window_size,
-            [
-                window_stats([s.ch01 for s in shots]),
-                window_stats([s.ch02 for s in shots]),
-            ],
-        )
+        stats = [
+            window_stats([s.ch01 for s in shots]),
+            window_stats([s.ch02 for s in shots]),
+        ]
+        self.header.set_data(shots, stats, self.cfg.window_size, len(self.history))
         self.chart.set_data(shots, self.cfg.chart_kind)
         self.table.update_rows(shots, self.cfg.composite_mode)
 
@@ -179,18 +204,18 @@ class MonitorApp:
         self._tick_once(rescan=False)
         self._refresh_views()
 
-    def _on_window_size(self, size: int) -> None:
-        self.cfg.window_size = size
+    def _on_window_size(self, size) -> None:
+        self.cfg.window_size = int(size)
         save_config(self.cfg)
         self._refresh_views()
 
-    def _on_kind(self, kind: str) -> None:
-        self.cfg.chart_kind = kind
+    def _on_kind(self, kind) -> None:
+        self.cfg.chart_kind = str(kind)
         save_config(self.cfg)
         self._refresh_views()
 
-    def _on_composite(self, mode: str) -> None:
-        self.cfg.composite_mode = mode
+    def _on_composite(self, mode) -> None:
+        self.cfg.composite_mode = str(mode)
         save_config(self.cfg)
         self._refresh_views()
 

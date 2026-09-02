@@ -1,110 +1,148 @@
 """配色とフォント。
 
-CH01=赤 / CH02=オレンジ は MPS08B 本体の init.xml にある waveColor の先頭 2 色
-(255,0,0) と (255,165,0) に合わせてある。本体の波形画面と並べたときに
-同じセンサが同じ色で見えることを優先した。
+MPS08B 本体アプリ (Mold Marshalling System) の画面から実測した色をベースに
+している。本体の隣に並べたときに同じ製品群に見えることを狙う。
+
+本体から採った色:
+    ウィンドウ地  #F2F5FF   わずかに青みがかった白
+    モード帯      #00FFFF   画面上部の「モニタモード」帯
+    強調帯        #FF1493   画面下部の帯
+    ボタン地      #E2F5FA   淡いシアン寄りの白
+    グラフ地      #000000   波形エリアだけが黒
+    テーブル      #FFFFFF   交互行でグループを示す
+    CH01 / CH02   #FF0000 / #FFA500  (init.xml の waveColor 先頭 2 色)
+
+本体は明るい地に黒いグラフを置く構成で、全面ダークではない。
 """
 
 from __future__ import annotations
 
-# --- 色 ---
-BG = "#101010"  # ウィンドウ地
-PANEL = "#181818"  # パネル地
-PLOT_BG = "#000000"  # グラフ地（本体アプリの波形画面と同じ黒）
-BORDER = "#2E2E2E"
+# --- 面 ---
+BG = "#F2F5FF"  # ウィンドウ地（本体実測値）
+PANEL = "#FFFFFF"  # カード・テーブルの地
+PANEL_ALT = "#E9EEF8"  # 交互行・沈めたい面
+PANEL_EDGE = "#C9D4E6"  # カードの縁
+BORDER = "#B8C4D8"
+PLOT_BG = "#000000"  # グラフ地（本体と同じ）
 
-FG = "#E6E6E6"  # 本文（純白は目が疲れる）
-MUTED = "#9E9E9E"  # 補助テキスト・軸ラベル
-DIM = "#6E6E6E"
+# --- 文字 ---
+FG = "#16202E"  # 本文
+MUTED = "#5B6779"  # ラベル・補助
+DIM = "#8B96A8"  # さらに弱い
+ON_PLOT = "#E6E6E6"  # 黒地の上の文字
+ON_PLOT_DIM = "#9E9E9E"
 
+# --- アクセント（本体の色彩言語に合わせる） ---
+ACCENT = "#00B8D4"  # シアン系。本体の #00FFFF は明るすぎるので少し沈める
+ACCENT_BAR = "#00E5FF"  # 状態帯（本体のモード帯に相当）
+ACCENT_SOFT = "#E2F5FA"  # ボタン地（本体実測値）
+ACCENT_EDGE = "#7FD4E8"
+
+OK = "#00A63C"
+WARN = "#E09000"
+ERR = "#D32F2F"
+ALERT_BAR = "#FF1493"  # 本体下部の帯と同じ
+
+SEL_BG = "#D6ECF7"  # 選択行
+SEL_EDGE = "#6FC4DF"
+
+# --- グラフ内（黒地の上） ---
 GRID = "#2A2A2A"
-AXIS = "#555555"
-GAP_LINE = "#4A4A4A"  # 計測中断の区切り線
+GRID_STRONG = "#3C3C3C"
+AXIS = "#5A5A5A"
+GAP_LINE = "#5A5A5A"
 
+# --- チャンネル ---
 CH01 = "#FF0000"
 CH02 = "#FFA500"
 CH_COLORS = (CH01, CH02)
 CH_NAMES = ("CH01", "CH02")
+#: 明るい地の上では純赤・純橙が浮くので、文字用は少し沈めた版を使う
+CH_TEXT = ("#D40000", "#C97800")
 
-OK = "#4CAF50"
-WARN = "#FFC107"
-ERR = "#F44336"
-
-SEL_BG = "#2A3A4A"
+UP = "#D32F2F"  # 前ショットより上がった
+DOWN = "#1565C0"  # 下がった
+FLAT = "#8B96A8"
 
 # --- フォント ---
-# 数値は等幅にしないと桁が揺れて読みにくい
 MONO = "Consolas"
 UI = "Yu Gothic UI"
 
-F_HUGE = (MONO, 40, "bold")  # 最新ショットのピーク値
+F_HUGE = (MONO, 38, "bold")  # 最新ショットのピーク値
+F_LARGE = (MONO, 20, "bold")
 F_BIG = (MONO, 15, "bold")
-F_LABEL = (UI, 11)
-F_SMALL = (UI, 9)
-F_STAT = (MONO, 10)
-F_TABLE = (MONO, 10)
 F_TITLE = (UI, 12, "bold")
+F_LABEL = (UI, 10)
+F_SMALL = (UI, 9)
+F_TINY = (UI, 8)
+F_STAT = (MONO, 10)
+F_STAT_S = (MONO, 9)
+F_TABLE = (MONO, 10)
 
 
 def apply_ttk_theme(style) -> None:
-    """ttk を暗色に寄せる。
+    """ttk を本体アプリ寄りの明るい配色に合わせる。
 
     clam 以外のテーマは background を素直に受け付けないので必ず clam にする。
     Treeview は background / fieldbackground / foreground の 3 つを揃えないと
-    白地が残る。
+    地の色が残る。
     """
     style.theme_use("clam")
 
     style.configure(".", background=BG, foreground=FG, fieldbackground=PANEL, borderwidth=0)
     style.configure("TFrame", background=BG)
     style.configure("Panel.TFrame", background=PANEL)
+    style.configure("Card.TFrame", background=PANEL, relief="flat")
+
     style.configure("TLabel", background=BG, foreground=FG, font=F_LABEL)
     style.configure("Panel.TLabel", background=PANEL, foreground=FG, font=F_LABEL)
     style.configure("Muted.TLabel", background=PANEL, foreground=MUTED, font=F_SMALL)
-    style.configure("Stat.TLabel", background=PANEL, foreground=MUTED, font=F_STAT)
-
-    style.configure(
-        "TButton", background=PANEL, foreground=FG, font=F_LABEL, padding=(10, 4), borderwidth=1
-    )
-    style.map(
-        "TButton",
-        background=[("active", "#2A2A2A"), ("pressed", "#333333")],
-        foreground=[("disabled", DIM)],
-    )
-    style.configure("Toggle.TButton", background=PANEL, foreground=MUTED)
-    style.configure("ToggleOn.TButton", background=SEL_BG, foreground=FG)
+    style.configure("MutedBg.TLabel", background=BG, foreground=MUTED, font=F_SMALL)
+    style.configure("Stat.TLabel", background=PANEL, foreground=MUTED, font=F_STAT_S)
 
     style.configure(
         "TCombobox",
         fieldbackground=PANEL,
-        background=PANEL,
+        background=ACCENT_SOFT,
         foreground=FG,
         arrowcolor=MUTED,
         selectbackground=SEL_BG,
         selectforeground=FG,
+        bordercolor=BORDER,
+        lightcolor=PANEL,
+        darkcolor=PANEL,
     )
     style.map("TCombobox", fieldbackground=[("readonly", PANEL)])
 
     style.configure(
         "Treeview",
-        background=PLOT_BG,
-        fieldbackground=PLOT_BG,
+        background=PANEL,
+        fieldbackground=PANEL,
         foreground=FG,
         font=F_TABLE,
-        rowheight=20,
+        rowheight=21,
         borderwidth=0,
     )
     style.configure(
         "Treeview.Heading",
-        background=PANEL,
+        background=PANEL_ALT,
         foreground=MUTED,
         font=F_SMALL,
         relief="flat",
         borderwidth=0,
+        padding=(2, 3),
     )
     style.map(
         "Treeview",
         background=[("selected", SEL_BG)],
         foreground=[("selected", FG)],
     )
-    style.map("Treeview.Heading", background=[("active", "#242424")])
+    style.map("Treeview.Heading", background=[("active", ACCENT_SOFT)])
+
+    style.configure(
+        "Vertical.TScrollbar",
+        background=PANEL_ALT,
+        troughcolor=BG,
+        bordercolor=BG,
+        arrowcolor=MUTED,
+    )

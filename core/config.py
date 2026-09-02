@@ -48,7 +48,7 @@ class AppConfig:
     window_size: int = 50
     chart_kind: str = "line"
     composite_mode: str = "max"
-    geometry: str = "1180x760"
+    geometry: str = "1280x880+30+16"
 
     def normalized(self) -> AppConfig:
         """不正な値を既定値に丸める。手で編集された config でも落ちないように。"""

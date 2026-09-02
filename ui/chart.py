@@ -113,7 +113,7 @@ class ShotChart(tk.Canvas):
                 (left + right) // 2,
                 (top + bottom) // 2,
                 text="データなし",
-                fill=theme.DIM,
+                fill=theme.ON_PLOT_DIM,
                 font=theme.F_LABEL,
             )
             return
@@ -152,14 +152,14 @@ class ShotChart(tk.Canvas):
                 y,
                 text=f"{v:g}",
                 anchor="e",
-                fill=theme.MUTED,
+                fill=theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
             )
             v += step
         self.create_line(left, top, left, bottom, fill=theme.AXIS)
         self.create_line(left, bottom, right, bottom, fill=theme.AXIS)
         self.create_text(
-            left - 8, top - 8, text="MPa", anchor="e", fill=theme.MUTED, font=theme.F_SMALL
+            left - 8, top - 8, text="MPa", anchor="e", fill=theme.ON_PLOT_DIM, font=theme.F_SMALL
         )
 
     def _draw_lines(self, x_at, y_at, gaps: set[int]) -> None:
@@ -227,7 +227,7 @@ class ShotChart(tk.Canvas):
                 top + 2 + row * GAP_LABEL_ROW_H,
                 text=f"{missing}欠",
                 anchor="nw",
-                fill=theme.DIM,
+                fill=theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
             )
             last_label_x = x
@@ -243,7 +243,7 @@ class ShotChart(tk.Canvas):
                 bottom + 6,
                 text=str(shot.shot_no),
                 anchor="n",
-                fill=theme.FG if is_last else theme.MUTED,
+                fill=theme.ON_PLOT if is_last else theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
             )
         self.create_text(
@@ -251,7 +251,7 @@ class ShotChart(tk.Canvas):
             bottom + 20,
             text="shot",
             anchor="n",
-            fill=theme.DIM,
+            fill=theme.ON_PLOT_DIM,
             font=theme.F_SMALL,
         )
 

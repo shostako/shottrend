@@ -61,11 +61,17 @@ def main() -> int:
     enable_dpi_awareness()
     logging.info("===== shot-monitor start =====")
 
-    from ui.app import MonitorApp
+    try:
+        from ui.app import MonitorApp
 
-    root = tk.Tk()
-    MonitorApp(root)
-    root.mainloop()
+        root = tk.Tk()
+        MonitorApp(root)
+        root.mainloop()
+    except Exception:
+        # pythonw 起動では stderr がどこにも出ないため、必ずログに残す。
+        # ここを握らないと「起動しない」としか分からなくなる。
+        logging.exception("fatal: application terminated")
+        return 1
     logging.info("===== shot-monitor stop =====")
     return 0
 
