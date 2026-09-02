@@ -4,6 +4,11 @@
 クリックしないと読めないので、常時大きく出す。加えて「前ショットからどう
 動いたか」を ▲▼ で見せる（純正にはこれが無い）。
 
+並ぶのは ch ごとのカードと、合成値（最大／最小／平均／差）のカードが 1 枚。
+合成値の種類はコントロールバーの選択に追従し、テーブルの合成値列と常に同じ
+ものを指す。サイクル・表示件数・使用 ch 数はカードにせず、ショット番号の
+行に添える。カードにするほどの情報量が無い。
+
 使用中の ch 数でカードの形を変える。MPS08B は 32ch まで計測できるので、
 大きいカードを固定で並べる作りにすると破綻する。
 """
@@ -14,17 +19,15 @@ import tkinter as tk
 from tkinter import ttk
 
 from core.models import Session, Shot
-from core.stats import ChannelStats
+from core.stats import COMPOSITE_LABELS, ChannelStats, composite, window_stats
 
 from . import theme
-from .widgets import ChannelCard, CompactChannelCard, InfoCard
+from .widgets import ChannelCard, CompactChannelCard
 
 #: これを超える ch 数になったら小型カードに切り替える
 LARGE_CARD_LIMIT = 3
 #: 小型カードを 1 段に並べる枚数
 COMPACT_PER_ROW = 5
-#: スパークラインに使う直近ショット数
-SPARK_POINTS = 30
 
 
 class HeaderPanel(ttk.Frame):
@@ -34,7 +37,11 @@ class HeaderPanel(ttk.Frame):
         self._sessions: list[Session] = []
         self._suppress = False
         self._channels: list[int] = []
+        self._compact = False
         self._cards: list[tk.Canvas] = []
+        self._composite_card: tk.Canvas | None = None
+        self._composite_mode = ""
+        self._grid_columns = 0
 
         top = ttk.Frame(self, style="TFrame")
         top.pack(fill="x", pady=(0, 8))
@@ -45,6 +52,11 @@ class HeaderPanel(ttk.Frame):
         self.time_label = ttk.Label(top, text="", style="MutedBg.TLabel")
         self.time_label.pack(side="left", padx=(12, 0))
 
+        # サイクル・表示件数・使用 ch 数。値そのものより「今どの窓を見ているか」の
+        # 文脈なので、目立たせずショット番号の隣に置く
+        self.meta_label = ttk.Label(top, text="", style="MutedBg.TLabel")
+        self.meta_label.pack(side="left", padx=(24, 0))
+
         self.session_box = ttk.Combobox(top, state="readonly", width=28, font=theme.F_SMALL)
         self.session_box.pack(side="right")
         self.session_box.bind("<<ComboboxSelected>>", self._session_selected)
@@ -52,35 +64,35 @@ class HeaderPanel(ttk.Frame):
             side="right", padx=(0, 8)
         )
 
-        row = ttk.Frame(self, style="TFrame")
-        row.pack(fill="x")
-        # 情報カードを先に右端へ確保する。後から詰めると、ウィンドウが最小幅
-        # まで縮んだときに右側から切られて「使用 ch」の値が読めなくなる
-        self.info = InfoCard(row, "ショット情報")
-        self.info.pack(side="right")
-        self._card_area = ttk.Frame(row, style="TFrame")
-        self._card_area.pack(side="left", fill="x", expand=True)
-        self._grid_columns = 0
+        self._card_area = ttk.Frame(self, style="TFrame")
+        self._card_area.pack(fill="x")
 
     # ---------------------------------------------------------------- channels
 
-    def _rebuild_cards(self, channels: list[int]) -> None:
-        """ch の顔ぶれが変わったときだけカードを作り直す。"""
+    def _rebuild_cards(self, channels: list[int], composite_mode: str) -> None:
+        """ch の顔ぶれか合成値の種類が変わったときだけカードを作り直す。"""
         for card in self._cards:
             card.destroy()
+        if self._composite_card is not None:
+            self._composite_card.destroy()
         self._cards = []
+        self._composite_card = None
         self._channels = list(channels)
+        self._composite_mode = composite_mode
 
         # 前回の列の重みを消す。残すと ch が減ったときに空の列が幅を取り続ける
         for col in range(self._grid_columns):
             self._card_area.columnconfigure(col, weight=0, uniform="")
 
-        compact = len(channels) > LARGE_CARD_LIMIT
-        for pos, ch in enumerate(channels):
-            name = theme.ch_name(ch)
-            color = theme.ch_color(ch)
-            text_color = theme.ch_text_color(ch)
-            if compact:
+        self._compact = len(channels) > LARGE_CARD_LIMIT
+        specs = [
+            (theme.ch_name(ch), theme.ch_color(ch), theme.ch_text_color(ch)) for ch in channels
+        ]
+        # 合成値のカード。ch の色と混ざらないよう本体のアクセント色を使う
+        specs.append((f"合成値 {COMPOSITE_LABELS.get(composite_mode, '')}", theme.ACCENT, theme.FG))
+
+        for pos, (name, color, text_color) in enumerate(specs):
+            if self._compact:
                 card = CompactChannelCard(self._card_area, name, color, text_color)
                 card.grid(
                     row=pos // COMPACT_PER_ROW,
@@ -89,15 +101,18 @@ class HeaderPanel(ttk.Frame):
                     pady=(0, 6),
                 )
             else:
-                # 大型カードは残り幅を均等に分け合う。固定幅だと最小ウィンドウ幅で
+                # 大型カードは幅を均等に分け合う。固定幅だと最小ウィンドウ幅で
                 # 入りきらず、ウィンドウを広げても右に空きができる。
-                # padx は全カード同じにする。末尾だけ変えると uniform でもカードの
-                # 実幅が 10px ずれて、スパークラインの有無が隣と食い違う
+                # padx は全カード同じにする。末尾だけ変えると uniform でも実幅が
+                # ずれて、隣同士で見た目が食い違う
                 card = ChannelCard(self._card_area, name, color, text_color)
                 card.grid(row=0, column=pos, sticky="ew", padx=(0, 10))
                 self._card_area.columnconfigure(pos, weight=1, uniform="card")
-            self._cards.append(card)
-        self._grid_columns = max(self._grid_columns, len(channels))
+            if pos < len(channels):
+                self._cards.append(card)
+            else:
+                self._composite_card = card
+        self._grid_columns = max(self._grid_columns, len(specs))
 
     # ------------------------------------------------------------------ update
 
@@ -106,12 +121,12 @@ class HeaderPanel(ttk.Frame):
         shots: list[Shot],
         channels: list[int],
         stats: list[ChannelStats],
-        window_size: int,
+        composite_mode: str,
         total: int,
     ) -> None:
         """表示中のショット列から、ヘッダの全要素を作り直す。"""
-        if channels != self._channels:
-            self._rebuild_cards(channels)
+        if channels != self._channels or composite_mode != self._composite_mode:
+            self._rebuild_cards(channels, composite_mode)
 
         latest = shots[-1] if shots else None
         prev = shots[-2] if len(shots) >= 2 else None
@@ -119,45 +134,33 @@ class HeaderPanel(ttk.Frame):
         if latest is None:
             self.shot_label.config(text="Shot ----")
             self.time_label.config(text="")
+            self.meta_label.config(text="")
             for card in self._cards:
-                card.set_data(None, None, [], None)
-            self.info.set_rows([])
+                card.set_data(None, None, None)
+            if self._composite_card is not None:
+                self._composite_card.set_data(None, None, None)
             return
 
         self.shot_label.config(text=f"Shot {latest.shot_no}")
         self.time_label.config(text=latest.dt.strftime("%Y/%m/%d  %H:%M:%S"))
+        self.meta_label.config(
+            text=(
+                f"サイクル {latest.interval:.2f} s    "
+                f"表示 {len(shots)} / {total} 件    "
+                f"{len(channels)} ch"
+            )
+        )
 
-        recent = shots[-SPARK_POINTS:]
         for pos, ch in enumerate(channels):
             value = latest.peak(ch)
             delta = None if prev is None else value - prev.peak(ch)
-            series = [s.peak(ch) for s in recent]
-            self._cards[pos].set_data(value, delta, series, stats[pos])
+            self._cards[pos].set_data(value, delta, stats[pos])
 
-        self.info.set_rows(self._info_rows(latest, channels, window_size, len(shots), total))
-
-    def _info_rows(
-        self, latest: Shot, channels: list[int], window_size: int, shown: int, total: int
-    ) -> list[tuple[str, str, str]]:
-        rows: list[tuple[str, str, str]] = []
-        if len(channels) >= 2:
-            values = [latest.peak(c) for c in channels]
-            spread = max(values) - min(values)
-            label = (
-                f"{theme.ch_name(channels[0])} − {theme.ch_name(channels[1])}"
-                if len(channels) == 2
-                else "ch 間のばらつき"
-            )
-            value = (
-                f"{latest.peak(channels[0]) - latest.peak(channels[1]):+.2f} MPa"
-                if len(channels) == 2
-                else f"{spread:.2f} MPa"
-            )
-            rows.append((label, value, theme.FG))
-        rows.append(("サイクル", f"{latest.interval:.2f} s", theme.MUTED))
-        rows.append(("表示", f"{shown} / {total} 件", theme.MUTED))
-        rows.append(("使用 ch", f"{len(channels)} 本", theme.DIM))
-        return rows
+        if self._composite_card is not None:
+            series = [composite(s, composite_mode, channels) for s in shots]
+            value = series[-1]
+            delta = None if prev is None else value - series[-2]
+            self._composite_card.set_data(value, delta, window_stats(series))
 
     # ---------------------------------------------------------------- sessions
 

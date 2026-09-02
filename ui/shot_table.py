@@ -42,8 +42,10 @@ class ShotTable(ttk.Frame):
         self._channels: list[int] = []
         self._composite_mode = "max"
 
+        # 行を選んでも何も起きないので選択自体を切る。選択色と最新行の色が同系で、
+        # クリックすると「最新」が 2 行あるように見えていた
         self.tree = ttk.Treeview(
-            self, columns=(), show="headings", selectmode="browse", height=VISIBLE_ROWS
+            self, columns=(), show="headings", selectmode="none", height=VISIBLE_ROWS
         )
         vscroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         # ch が増えると列が画面幅に収まらない (8ch + 差分列で 20 列になる)

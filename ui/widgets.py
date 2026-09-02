@@ -216,20 +216,19 @@ class StatusStrip(tk.Canvas):
 
 
 class ChannelCard(tk.Canvas):
-    """1 チャンネル分の最新値・前ショットとの差・推移・統計を 1 枚に収める。
+    """1 系列分の最新値・前ショットとの差・統計を 1 枚に収める。
 
-    カード全体を Canvas に描くことで、角丸や色チップ、数値の位置を自由に
-    決められる。ttk のウィジェットを組み合わせるより見た目を詰めやすい。
+    ch ごとのカードにも、合成値のカードにも使う。カード全体を Canvas に描く
+    ことで、角丸や色チップ、数値の位置を自由に決められる。
 
-    幅は親のグリッドに追従する（WIDTH は最小幅）。狭いときはスパークラインを
-    落として数値を優先する。
+    推移の小グラフ（スパークライン）は置かない。すぐ下に同じデータの本物の
+    グラフがあり、二重に出しても読む場所が増えるだけだった。
+
+    幅は親のグリッドに追従する（WIDTH は最小幅）。
     """
 
-    WIDTH = 300
+    WIDTH = 240
     HEIGHT = 150
-    #: スパークラインの幅の範囲。これより狭くなるなら描かない
-    SPARK_MIN_WIDTH = 90
-    SPARK_MAX_WIDTH = 220
 
     def __init__(self, parent: tk.Misc, name: str, color: str, text_color: str) -> None:
         super().__init__(
@@ -245,7 +244,6 @@ class ChannelCard(tk.Canvas):
         self._text_color = text_color
         self._value: float | None = None
         self._delta: float | None = None
-        self._series: list[float] = []
         self._stats = None
         self.bind("<Configure>", lambda _e: self._redraw())
         self._redraw()
@@ -255,10 +253,9 @@ class ChannelCard(tk.Canvas):
         w = self.winfo_width()
         return w if w > 1 else self.WIDTH
 
-    def set_data(self, value, delta, series, stats) -> None:
+    def set_data(self, value, delta, stats) -> None:
         self._value = value
         self._delta = delta
-        self._series = series
         self._stats = stats
         self._redraw()
 
@@ -291,16 +288,7 @@ class ChannelCard(tk.Canvas):
         )
         # 単位は数値の実寸に合わせて添える。見出しに置くと数字と離れて読みにくい
         x_end = self.bbox(num)[2]
-        unit = self.create_text(
-            x_end + 6, 74, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_SMALL
-        )
-
-        # スパークラインは単位の右から右端までを使う。数値の実寸から位置を決めるので
-        # 幅が変わっても重ならない。狭くて描く余地が無ければ落とす（数値を優先）
-        spark_x = self.bbox(unit)[2] + 14
-        spark_w = min(self.SPARK_MAX_WIDTH, w - 16 - spark_x)
-        if spark_w >= self.SPARK_MIN_WIDTH:
-            self._draw_sparkline(w - 16 - spark_w, 44, spark_w, 32)
+        self.create_text(x_end + 6, 74, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_SMALL)
         self._draw_stats(20, 100, w - 20)
 
     def _draw_delta(self, x: float, y: float) -> None:
@@ -322,36 +310,6 @@ class ChannelCard(tk.Canvas):
             font=theme.F_STAT,
         )
 
-    def _draw_sparkline(self, x: float, y: float, w: float, h: float) -> None:
-        vals = self._series
-        if len(vals) < 2:
-            return
-        lo, hi = min(vals), max(vals)
-        span = hi - lo
-        if span < 1e-9:
-            lo, hi, span = lo - 1.0, hi + 1.0, 2.0
-        n = len(vals)
-
-        def px(i: int) -> float:
-            return x + w * i / (n - 1)
-
-        def py(v: float) -> float:
-            return y + h * (hi - v) / span
-
-        coords = [c for i, v in enumerate(vals) for c in (px(i), py(v))]
-        self.create_polygon(
-            [*coords, px(n - 1), y + h, px(0), y + h], fill=theme.PANEL_ALT, outline=""
-        )
-        self.create_line(*coords, fill=self._color, width=1)
-        self.create_oval(
-            px(n - 1) - 2.5,
-            py(vals[-1]) - 2.5,
-            px(n - 1) + 2.5,
-            py(vals[-1]) + 2.5,
-            fill=self._color,
-            outline="",
-        )
-
     def _draw_stats(self, x: float, y: float, right: float) -> None:
         st = self._stats
         if st is None or st.empty:
@@ -370,42 +328,6 @@ class ChannelCard(tk.Canvas):
             self.create_text(
                 cx, y + 18, text=value, anchor="w", fill=theme.MUTED, font=theme.F_STAT
             )
-
-
-class InfoCard(tk.Canvas):
-    """補助情報（ch 間の差・サイクル・表示件数など）をまとめる小さなカード。"""
-
-    WIDTH = 240
-    HEIGHT = 150
-
-    def __init__(self, parent: tk.Misc, title: str) -> None:
-        super().__init__(
-            parent,
-            width=self.WIDTH,
-            height=self.HEIGHT,
-            background=theme.BG,
-            highlightthickness=0,
-            bd=0,
-        )
-        self._title = title
-        self._rows: list[tuple[str, str, str]] = []
-        self._redraw()
-
-    def set_rows(self, rows: list[tuple[str, str, str]]) -> None:
-        """rows は (ラベル, 値, 色) の並び。"""
-        self._rows = rows
-        self._redraw()
-
-    def _redraw(self) -> None:
-        self.delete("all")
-        w, h = self.WIDTH, self.HEIGHT
-        round_rect(self, 1, 1, w - 1, h - 1, 8, fill=theme.PANEL, outline=theme.PANEL_EDGE)
-        self.create_text(18, 20, text=self._title, anchor="w", fill=theme.FG, font=theme.F_TITLE)
-        y = 48
-        for label, value, color in self._rows:
-            self.create_text(18, y, text=label, anchor="w", fill=theme.DIM, font=theme.F_SMALL)
-            self.create_text(w - 18, y, text=value, anchor="e", fill=color, font=theme.F_STAT)
-            y += 24
 
 
 class CompactChannelCard(tk.Canvas):
@@ -434,7 +356,7 @@ class CompactChannelCard(tk.Canvas):
         self._delta: float | None = None
         self._redraw()
 
-    def set_data(self, value, delta, series, stats) -> None:  # noqa: ARG002 - 大型版と同じ呼び口にする
+    def set_data(self, value, delta, stats) -> None:  # noqa: ARG002 - 大型版と同じ呼び口にする
         self._value = value
         self._delta = delta
         self._redraw()

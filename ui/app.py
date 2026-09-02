@@ -197,7 +197,7 @@ class MonitorApp:
         stats = [window_stats([s.peak(c) for s in shots]) for c in channels]
 
         self.controls.set_channels(channels)
-        self.header.set_data(shots, channels, stats, self.cfg.window_size, len(self.history))
+        self.header.set_data(shots, channels, stats, self.cfg.composite_mode, len(self.history))
         self.chart.set_data(shots, channels, self.cfg.chart_kind)
         self.table.set_channels(channels)
         self.table.update_rows(shots, self.cfg.composite_mode)

@@ -138,6 +138,23 @@ def apply_ttk_theme(style) -> None:
     style.configure("Stat.TLabel", background=PANEL, foreground=MUTED, font=F_STAT_S)
 
     style.configure(
+        "TCheckbutton",
+        background=BG,
+        foreground=MUTED,
+        font=F_SMALL,
+        indicatorcolor=PANEL,
+        indicatorbackground=PANEL,
+        indicatormargin=(0, 0, 6, 0),
+        padding=(0, 2),
+    )
+    style.map(
+        "TCheckbutton",
+        background=[("active", BG)],
+        foreground=[("active", FG)],
+        indicatorcolor=[("selected", ACCENT), ("pressed", ACCENT_SOFT)],
+    )
+
+    style.configure(
         "TCombobox",
         fieldbackground=PANEL,
         background=ACCENT_SOFT,
