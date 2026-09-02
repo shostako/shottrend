@@ -45,8 +45,12 @@ def data_line(
     ch02: float = 0.0,
     interval: float = 21.9,
     peaks: tuple[float, ...] | None = None,
+    extra: dict[str, tuple[float, ...]] | None = None,
 ) -> str:
-    """1 データ行。peaks を渡すと CH01 から順にその値を入れる。"""
+    """1 データ行。peaks を渡すと CH01 から順にその値を入れる。
+
+    extra は項目キー → CH01 から順の値。ピーク以外の列を埋めたいときに使う。
+    """
     fields = [""] * len(HEADER_FIELDS)
     fields[0] = dt
     fields[1] = f"{interval:.2f}"
@@ -58,6 +62,12 @@ def data_line(
     base = HEADER_FIELDS.index("CH01_peak")
     for i, v in enumerate(values):
         fields[base + i] = f"{v:.2f}"
+    for key, seq in (extra or {}).items():
+        start = HEADER_FIELDS.index(f"CH01_{key}")
+        for i, v in enumerate(seq):
+            fields[start + i] = (
+                f"{v:.3f}" if key.endswith("time") or key.endswith("Time") else f"{v:.2f}"
+            )
     return ",".join(fields) + ","
 
 

@@ -13,6 +13,8 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from core.metrics import DEFAULT_METRIC
+from core.metrics import metric as metric_of
 from core.models import Shot
 from core.stats import COMPOSITE_LABELS, composite
 
@@ -26,13 +28,13 @@ PAD_WIDTH = 16
 VISIBLE_ROWS = 8
 
 
-def _delta_text(cur: float, prev: float | None) -> str:
+def _delta_text(cur: float, prev: float | None, digits: int) -> str:
     if prev is None:
         return "—"
     d = cur - prev
-    if abs(d) < 0.005:
-        return "→ 0.00"
-    return f"{'▲' if d > 0 else '▼'} {abs(d):.2f}"
+    if abs(d) < 0.5 * 10**-digits:
+        return f"→ {0:.{digits}f}"
+    return f"{'▲' if d > 0 else '▼'} {abs(d):.{digits}f}"
 
 
 class ShotTable(ttk.Frame):
@@ -41,6 +43,7 @@ class ShotTable(ttk.Frame):
         self._show_delta = False
         self._channels: list[int] = []
         self._composite_mode = "max"
+        self._metric = metric_of(DEFAULT_METRIC)
 
         # 行を選んでも何も起きないので選択自体を切る。選択色と最新行の色が同系で、
         # クリックすると「最新」が 2 行あるように見えていた
@@ -94,17 +97,22 @@ class ShotTable(ttk.Frame):
         self._rebuild_columns()
 
     def _column_spec(self) -> list[tuple[str, str, int, str]]:
-        """(key, 見出し, 最小幅, 寄せ) の並びを作る。"""
+        """(key, 見出し, 最小幅, 寄せ) の並びを作る。
+
+        ch 列の見出しに単位を付ける（本体アプリの `[MPa]` 表記に倣う）。
+        どの項目を見ているかは、見出しの単位とコントロールバーで分かる。
+        """
+        unit = f" [{self._metric.unit}]"
         spec: list[tuple[str, str, int, str]] = [
             ("shot", "Shot", 64, "e"),
             ("time", "Time", 88, "center"),
         ]
         for ch in self._channels:
             name = theme.ch_name(ch)
-            spec.append((f"ch{ch}", name, 80, "e"))
+            spec.append((f"ch{ch}", name + unit, 96, "e"))
             if self._show_delta:
-                spec.append((f"d{ch}", f"Δ{name}", 80, "e"))
-        spec.append(("comp", COMPOSITE_LABELS.get(self._composite_mode, "最大"), 80, "e"))
+                spec.append((f"d{ch}", f"Δ{name}", 84, "e"))
+        spec.append(("comp", COMPOSITE_LABELS.get(self._composite_mode, "最大") + unit, 96, "e"))
         if self._show_delta and len(self._channels) >= 2:
             spec.append(("spread", "ばらつき", 84, "e"))
         spec.append(("interval", "interval", 84, "e"))
@@ -124,11 +132,16 @@ class ShotTable(ttk.Frame):
 
     # ------------------------------------------------------------------ rows
 
-    def update_rows(self, shots: list[Shot], composite_mode: str) -> None:
-        if composite_mode != self._composite_mode:
+    def update_rows(
+        self, shots: list[Shot], composite_mode: str, metric_key: str = DEFAULT_METRIC
+    ) -> None:
+        m = metric_of(metric_key)
+        if composite_mode != self._composite_mode or m.key != self._metric.key:
             self._composite_mode = composite_mode
-            self.tree.heading("comp", text=COMPOSITE_LABELS.get(composite_mode, "最大"), anchor="e")
+            self._metric = m
+            self._rebuild_columns()
         self.tree.delete(*self.tree.get_children())
+        key, digits = m.key, m.digits
 
         # 最新を上にするので逆順で回す
         ordered = list(reversed(shots))
@@ -143,14 +156,15 @@ class ShotTable(ttk.Frame):
 
             values: list[object] = [s.shot_no, s.time_text]
             for ch in self._channels:
-                values.append(f"{s.peak(ch):.2f}")
+                v = s.value(key, ch)
+                values.append(m.fmt(v))
                 if self._show_delta:
-                    prev = older.peak(ch) if contiguous else None
-                    values.append(_delta_text(s.peak(ch), prev))
-            values.append(f"{composite(s, composite_mode, self._channels):.2f}")
+                    prev = older.value(key, ch) if contiguous else None
+                    values.append(_delta_text(v, prev, digits))
+            values.append(m.fmt(composite(s, composite_mode, self._channels, key)))
             if self._show_delta and len(self._channels) >= 2:
-                peaks = [s.peak(c) for c in self._channels]
-                values.append(f"{max(peaks) - min(peaks):.2f}")
+                vals = [s.value(key, c) for c in self._channels]
+                values.append(m.fmt(max(vals) - min(vals)))
             values.append(f"{s.interval:.2f}")
             values.append("")
 

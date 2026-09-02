@@ -17,6 +17,8 @@ import sys
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
+from .metrics import DEFAULT_METRIC, METRIC_KEYS
+
 log = logging.getLogger(__name__)
 
 CONFIG_FILENAME = "config.json"
@@ -47,6 +49,7 @@ class AppConfig:
     session_rescan_ticks: int = 10
     window_size: int = 50
     chart_kind: str = "line"
+    metric: str = DEFAULT_METRIC
     composite_mode: str = "max"
     show_delta_columns: bool = False
     geometry: str = "1280x880+30+16"
@@ -57,6 +60,8 @@ class AppConfig:
             self.window_size = 50
         if self.chart_kind not in CHART_KINDS:
             self.chart_kind = "line"
+        if self.metric not in METRIC_KEYS:
+            self.metric = DEFAULT_METRIC
         if self.composite_mode not in ("max", "min", "avg", "diff"):
             self.composite_mode = "max"
         self.poll_interval_ms = max(250, min(int(self.poll_interval_ms), 60_000))

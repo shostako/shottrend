@@ -230,7 +230,15 @@ class ChannelCard(tk.Canvas):
     WIDTH = 240
     HEIGHT = 150
 
-    def __init__(self, parent: tk.Misc, name: str, color: str, text_color: str) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        name: str,
+        color: str,
+        text_color: str,
+        unit: str = "MPa",
+        digits: int = 2,
+    ) -> None:
         super().__init__(
             parent,
             width=self.WIDTH,
@@ -242,11 +250,16 @@ class ChannelCard(tk.Canvas):
         self._name = name
         self._color = color
         self._text_color = text_color
+        self._unit = unit
+        self._digits = digits
         self._value: float | None = None
         self._delta: float | None = None
         self._stats = None
         self.bind("<Configure>", lambda _e: self._redraw())
         self._redraw()
+
+    def _fmt(self, v: float) -> str:
+        return f"{v:.{self._digits}f}"
 
     def _width(self) -> int:
         # 配置前は winfo_width() が 1 を返す
@@ -281,21 +294,23 @@ class ChannelCard(tk.Canvas):
         num = self.create_text(
             20,
             62,
-            text=f"{self._value:.2f}",
+            text=self._fmt(self._value),
             anchor="w",
             fill=self._text_color,
             font=theme.F_HUGE,
         )
         # 単位は数値の実寸に合わせて添える。見出しに置くと数字と離れて読みにくい
         x_end = self.bbox(num)[2]
-        self.create_text(x_end + 6, 74, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_SMALL)
+        self.create_text(
+            x_end + 6, 74, text=self._unit, anchor="w", fill=theme.DIM, font=theme.F_SMALL
+        )
         self._draw_stats(20, 100, w - 20)
 
     def _draw_delta(self, x: float, y: float) -> None:
         if self._delta is None:
             return
         d = self._delta
-        if abs(d) < 0.005:
+        if abs(d) < 0.5 * 10**-self._digits:
             mark, color = "→", theme.FLAT
         elif d > 0:
             mark, color = "▲", theme.UP
@@ -304,7 +319,7 @@ class ChannelCard(tk.Canvas):
         self.create_text(
             x,
             y,
-            text=f"{mark} {abs(d):.2f}",
+            text=f"{mark} {self._fmt(abs(d))}",
             anchor="e",
             fill=color,
             font=theme.F_STAT,
@@ -316,10 +331,10 @@ class ChannelCard(tk.Canvas):
             return
         self.create_line(x, y - 8, right, y - 8, fill=theme.PANEL_ALT)
         pairs = (
-            ("max", f"{st.max:.2f}"),
-            ("min", f"{st.min:.2f}"),
-            ("avg", f"{st.avg:.2f}"),
-            ("σ", f"{st.sd:.2f}"),
+            ("max", self._fmt(st.max)),
+            ("min", self._fmt(st.min)),
+            ("avg", self._fmt(st.avg)),
+            ("σ", self._fmt(st.sd)),
         )
         col_w = (right - x) / 4
         for i, (label, value) in enumerate(pairs):
@@ -340,7 +355,15 @@ class CompactChannelCard(tk.Canvas):
     WIDTH = 182
     HEIGHT = 72
 
-    def __init__(self, parent: tk.Misc, name: str, color: str, text_color: str) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        name: str,
+        color: str,
+        text_color: str,
+        unit: str = "MPa",
+        digits: int = 2,
+    ) -> None:
         super().__init__(
             parent,
             width=self.WIDTH,
@@ -352,9 +375,14 @@ class CompactChannelCard(tk.Canvas):
         self._name = name
         self._color = color
         self._text_color = text_color
+        self._unit = unit
+        self._digits = digits
         self._value: float | None = None
         self._delta: float | None = None
         self._redraw()
+
+    def _fmt(self, v: float) -> str:
+        return f"{v:.{self._digits}f}"
 
     def set_data(self, value, delta, stats) -> None:  # noqa: ARG002 - 大型版と同じ呼び口にする
         self._value = value
@@ -376,17 +404,22 @@ class CompactChannelCard(tk.Canvas):
         num = self.create_text(
             14,
             46,
-            text=f"{self._value:.2f}",
+            text=self._fmt(self._value),
             anchor="w",
             fill=self._text_color,
             font=theme.F_LARGE,
         )
         self.create_text(
-            self.bbox(num)[2] + 4, 51, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_TINY
+            self.bbox(num)[2] + 4,
+            51,
+            text=self._unit,
+            anchor="w",
+            fill=theme.DIM,
+            font=theme.F_TINY,
         )
         if self._delta is not None:
             d = self._delta
-            if abs(d) < 0.005:
+            if abs(d) < 0.5 * 10**-self._digits:
                 mark, color = "→", theme.FLAT
             elif d > 0:
                 mark, color = "▲", theme.UP
@@ -395,7 +428,7 @@ class CompactChannelCard(tk.Canvas):
             self.create_text(
                 w - 12,
                 16,
-                text=f"{mark}{abs(d):.2f}",
+                text=f"{mark}{self._fmt(abs(d))}",
                 anchor="e",
                 fill=color,
                 font=theme.F_STAT_S,
