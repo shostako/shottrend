@@ -103,6 +103,7 @@ class MonitorApp:
             on_window=self._on_window_size,
             on_kind=self._on_kind,
             on_composite=self._on_composite,
+            on_delta=self._on_delta,
         )
         self.controls.pack(fill="x")
 
@@ -112,6 +113,7 @@ class MonitorApp:
         # 先に下段（テーブル）の領域を確保してから、残り全部をグラフに与える。
         # 逆順に pack すると、ウィンドウが縮んだときにテーブルが先に切られる。
         self.table = ShotTable(body)
+        self.table.set_show_delta(self.cfg.show_delta_columns)
         self.table.pack(side="bottom", fill="x", expand=False, pady=(10, 0))
 
         # 黒いグラフが明るい地に浮くので、細い縁で囲んでカードに見せる
@@ -218,6 +220,11 @@ class MonitorApp:
         self.cfg.composite_mode = str(mode)
         save_config(self.cfg)
         self._refresh_views()
+
+    def _on_delta(self, show) -> None:
+        self.cfg.show_delta_columns = bool(show)
+        save_config(self.cfg)
+        self.table.set_show_delta(self.cfg.show_delta_columns)
 
     # ------------------------------------------------------------------ close
 

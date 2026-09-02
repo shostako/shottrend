@@ -124,35 +124,59 @@ class SegmentedControl(tk.Canvas):
     # ---------------------------------------------------------------- drawing
 
     def _redraw(self) -> None:
+        """背景 → 選択の塗り → 区切り線 → 外枠 → 文字 の順に重ねる。
+
+        セグメントを 1 つずつ「枠付きで」描くと、端の角丸を四角く戻す塗りが
+        隣との境界線を消してしまう。塗りを全部置いてから線を引くことで、
+        どのセグメントが選ばれていても境界が必ず残る。
+        """
         self.delete("all")
         h = int(self["height"])
-        for i, (value, label) in enumerate(self._segments):
+        n = len(self._segments)
+        left, right = 1, 1 + self._seg_w * n
+
+        # 1. 背景（全体で 1 つの角丸）
+        round_rect(self, left, 1, right, h - 1, 6, fill=theme.PANEL, outline="")
+
+        # 2. 選択・ホバーの塗り
+        for i, (value, _label) in enumerate(self._segments):
+            if value == self._value:
+                fill = theme.ACCENT
+            elif i == self._hover:
+                fill = theme.ACCENT_SOFT
+            else:
+                continue
             x0 = 1 + i * self._seg_w
             x1 = x0 + self._seg_w
-            selected = value == self._value
-            hovered = i == self._hover
-
-            if selected:
-                fill, edge, fg = theme.ACCENT, theme.ACCENT, "#FFFFFF"
-            elif hovered:
-                fill, edge, fg = theme.ACCENT_SOFT, theme.ACCENT_EDGE, theme.FG
-            else:
-                fill, edge, fg = theme.PANEL, theme.BORDER, theme.MUTED
-
-            # 端だけ角を丸め、内側は角を残して連結したセグメントに見せる
-            first, last = i == 0, i == len(self._segments) - 1
+            first, last = i == 0, i == n - 1
             if first or last:
-                round_rect(self, x0, 1, x1, h - 1, 6, fill=fill, outline=edge)
+                # 端は外側だけ丸め、内側の角は塗り足して四角く戻す
+                round_rect(self, x0, 1, x1, h - 1, 6, fill=fill, outline=fill)
                 if not first:
                     self.create_rectangle(x0, 1, x0 + 7, h - 1, fill=fill, outline=fill)
                 if not last:
                     self.create_rectangle(x1 - 7, 1, x1, h - 1, fill=fill, outline=fill)
-                self.create_line(x0, 1, x1, 1, fill=edge)
-                self.create_line(x0, h - 1, x1, h - 1, fill=edge)
             else:
-                self.create_rectangle(x0, 1, x1, h - 1, fill=fill, outline=edge)
+                self.create_rectangle(x0, 1, x1, h - 1, fill=fill, outline=fill)
 
-            self.create_text((x0 + x1) / 2, h / 2, text=label, fill=fg, font=theme.F_LABEL)
+        # 3. 区切り線（塗りの上に引くので必ず見える）
+        for i in range(1, n):
+            x = 1 + i * self._seg_w
+            self.create_line(x, 2, x, h - 2, fill=theme.BORDER)
+
+        # 4. 外枠
+        round_rect(self, left, 1, right, h - 1, 6, fill="", outline=theme.BORDER)
+
+        # 5. 文字
+        for i, (value, label) in enumerate(self._segments):
+            x0 = 1 + i * self._seg_w
+            if value == self._value:
+                fg = "#FFFFFF"
+            elif i == self._hover:
+                fg = theme.FG
+            else:
+                fg = theme.MUTED
+            self.create_text(x0 + self._seg_w / 2, h / 2, text=label, fill=fg, font=theme.F_LABEL)
 
 
 class StatusStrip(tk.Canvas):

@@ -44,7 +44,7 @@ class _Legend(tk.Canvas):
 
 
 class ControlBar(ttk.Frame):
-    def __init__(self, parent: tk.Misc, cfg, on_window, on_kind, on_composite) -> None:
+    def __init__(self, parent: tk.Misc, cfg, on_window, on_kind, on_composite, on_delta) -> None:
         super().__init__(parent, style="TFrame", padding=(14, 6, 14, 6))
 
         self.window_group = self._group(
@@ -63,6 +63,14 @@ class ControlBar(ttk.Frame):
             cfg.composite_mode,
             on_composite,
             48,
+        )
+
+        self.delta_group = self._group(
+            "差分列",
+            [(False, "隠す"), (True, "出す")],
+            cfg.show_delta_columns,
+            on_delta,
+            46,
         )
 
         _Legend(self).pack(side="right")
