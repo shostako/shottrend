@@ -207,3 +207,7 @@ GitHub Actions（`release.yml`）が Windows で lint・テスト・ビルドを
 - コード署名していないので初回起動で SmartScreen が出る
 - 単体 exe は起動時に一時フォルダへ展開するため、初回起動に数秒かかる
 - 積分系の単位 `MPa·s` は本体の表示で確認していない（推定）
+
+## ライセンス
+
+[MIT](LICENSE)。Futaba、MPS08B、Mold Marshalling System は双葉電子工業株式会社の商標または製品名で、本ソフトウェアは同社とは無関係の非公式ツール。
