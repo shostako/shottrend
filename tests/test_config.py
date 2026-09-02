@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from core.config import AppConfig, load_config, save_config
+from shottrend.core.config import AppConfig, load_config, save_config
 
 
 def test_unknown_metric_falls_back_to_peak(tmp_path):

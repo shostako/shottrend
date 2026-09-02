@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta
 
-from core.discovery import DataRootScanner
-from core.history import ShotHistory
-from core.monitor import STATUS_IDLE, STATUS_NOROOT, STATUS_RUNNING, MonitorService
+from shottrend.core.discovery import DataRootScanner
+from shottrend.core.history import ShotHistory
+from shottrend.core.monitor import STATUS_IDLE, STATUS_NOROOT, STATUS_RUNNING, MonitorService
 
 from .conftest import HEADER_LINE, data_line
 

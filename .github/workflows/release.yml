@@ -30,12 +30,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,build]"
 
-      - name: Tag must match core/version.py
+      - name: Tag must match shottrend/core/version.py
         shell: bash
         run: |
-          v=$(python -c "from core.version import __version__; print(__version__)")
+          v=$(python -c "from shottrend.core.version import __version__; print(__version__)")
           if [ "v$v" != "${GITHUB_REF_NAME}" ]; then
-            echo "tag ${GITHUB_REF_NAME} != core.version v$v" >&2
+            echo "tag ${GITHUB_REF_NAME} != shottrend.core.version v$v" >&2
             exit 1
           fi
 
@@ -57,7 +57,7 @@ jobs:
         run: |
           python - <<'PY'
           import re
-          from core.version import __version__
+          from shottrend.core.version import __version__
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"^## \[{re.escape(__version__)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
           body = m.group(1).strip() if m else "（CHANGELOG に該当節なし）"
@@ -68,8 +68,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: shot-monitor ${{ github.ref_name }}
+          name: ShotTrend ${{ github.ref_name }}
           body_path: release_notes.md
           files: |
-            dist/shot-monitor.exe
-            dist/shot-monitor-*-win64.zip
+            dist/shottrend.exe
+            dist/shottrend-*-win64.zip

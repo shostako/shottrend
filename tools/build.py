@@ -4,8 +4,8 @@
     py -3.12 tools/build.py
 
 できるもの:
-    dist/shot-monitor.exe
-    dist/shot-monitor-<version>-win64.zip   ← exe + README + CHANGELOG + config.example.json
+    dist/shottrend.exe
+    dist/shottrend-<version>-win64.zip   ← exe + README + CHANGELOG + config.example.json
 
 GitHub Actions の release.yml も同じスクリプトを呼ぶ。手元と CI で手順を分けない。
 """
@@ -21,12 +21,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.version import __version__  # noqa: E402
+from shottrend.core.version import __version__  # noqa: E402
 
 DIST = ROOT / "dist"
 BUILD = ROOT / "build"
-SPEC = ROOT / "shot-monitor.spec"
-EXE = DIST / "shot-monitor.exe"
+SPEC = ROOT / "shottrend.spec"
+EXE = DIST / "shottrend.exe"
 BUNDLE = [ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "config.example.json"]
 
 
@@ -48,7 +48,7 @@ def run_pyinstaller() -> None:
 
 
 def make_zip() -> Path:
-    out = DIST / f"shot-monitor-{__version__}-win64.zip"
+    out = DIST / f"shottrend-{__version__}-win64.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(EXE, EXE.name)
         for f in BUNDLE:

@@ -19,9 +19,9 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from core.metrics import metric as metric_of
-from core.models import Session, Shot
-from core.stats import COMPOSITE_LABELS, ChannelStats, composite, window_stats
+from shottrend.core.metrics import metric as metric_of
+from shottrend.core.models import Session, Shot
+from shottrend.core.stats import COMPOSITE_LABELS, ChannelStats, composite, window_stats
 
 from . import theme
 from .widgets import ChannelCard, CompactChannelCard

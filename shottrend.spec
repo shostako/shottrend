@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller の定義。`tools/build.py` から呼ぶ（直接 `pyinstaller shot-monitor.spec` でも可）。
+"""PyInstaller の定義。`tools/build.py` から呼ぶ（直接 `pyinstaller shottrend.spec` でも可）。
 
 1 ファイルの exe にする。現場 PC に置くのは exe 1 本で、config.json と logs/ は
 exe の隣に作られる（app.pyw と core/config.py の frozen 判定）。
@@ -43,7 +43,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="shot-monitor",
+    name="shottrend",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

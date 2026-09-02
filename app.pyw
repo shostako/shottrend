@@ -1,4 +1,4 @@
-"""shot-monitor エントリポイント。
+"""ShotTrend エントリポイント。
 
 pythonw.exe (窓なし) で起動されると sys.stdout が None になるため、
 その場合はログをファイルへ回す。py.exe で手動起動したときは画面に出す。
@@ -67,10 +67,10 @@ def enable_dpi_awareness() -> None:
 def main() -> int:
     setup_logging()
     enable_dpi_awareness()
-    logging.info("===== shot-monitor start =====")
+    logging.info("===== ShotTrend start =====")
 
     try:
-        from ui.app import MonitorApp
+        from shottrend.ui.app import MonitorApp
 
         root = tk.Tk()
         MonitorApp(root)
@@ -80,7 +80,7 @@ def main() -> int:
         # ここを握らないと「起動しない」としか分からなくなる。
         logging.exception("fatal: application terminated")
         return 1
-    logging.info("===== shot-monitor stop =====")
+    logging.info("===== ShotTrend stop =====")
     return 0
 
 

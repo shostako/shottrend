@@ -11,11 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from core.config import AppConfig, config_path, load_config, save_config
-from core.discovery import DataRootScanner
-from core.history import ShotHistory
-from core.models import Session
-from core.monitor import (
+from shottrend.core.config import AppConfig, config_path, load_config, save_config
+from shottrend.core.discovery import DataRootScanner
+from shottrend.core.history import ShotHistory
+from shottrend.core.models import Session
+from shottrend.core.monitor import (
     STATUS_ERROR,
     STATUS_IDLE,
     STATUS_NODATA,
@@ -23,8 +23,8 @@ from core.monitor import (
     STATUS_RUNNING,
     MonitorService,
 )
-from core.stats import window_stats
-from core.version import __version__
+from shottrend.core.stats import window_stats
+from shottrend.core.version import __version__
 
 from . import theme
 from .chart import ShotChart
@@ -35,7 +35,7 @@ from .widgets import StatusStrip
 
 log = logging.getLogger(__name__)
 
-TITLE = "shot-monitor — MPS08B 演算値トレンド"
+TITLE = "ShotTrend — MPS08B 演算値トレンド"
 
 #: 状態帯の見え方。本体アプリの「モニタモード」帯の色彩言語に合わせる。
 _STATUS_STYLE = {
@@ -94,8 +94,8 @@ class MonitorApp:
 
     def show_about(self) -> None:
         messagebox.showinfo(
-            "shot-monitor",
-            f"shot-monitor {__version__}\n"
+            "ShotTrend",
+            f"ShotTrend {__version__}\n"
             "MPS08B (Mold Marshalling System) 演算値トレンドモニタ\n\n"
             f"設定: {config_path()}\n"
             f"データ: {self.cfg.mms_data_dir or '(未設定)'}",
