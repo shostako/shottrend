@@ -54,10 +54,13 @@ class HeaderPanel(ttk.Frame):
 
         row = ttk.Frame(self, style="TFrame")
         row.pack(fill="x")
-        self._card_area = ttk.Frame(row, style="TFrame")
-        self._card_area.pack(side="left")
+        # 情報カードを先に右端へ確保する。後から詰めると、ウィンドウが最小幅
+        # まで縮んだときに右側から切られて「使用 ch」の値が読めなくなる
         self.info = InfoCard(row, "ショット情報")
-        self.info.pack(side="left", padx=(10, 0))
+        self.info.pack(side="right")
+        self._card_area = ttk.Frame(row, style="TFrame")
+        self._card_area.pack(side="left", fill="x", expand=True)
+        self._grid_columns = 0
 
     # ---------------------------------------------------------------- channels
 
@@ -67,6 +70,10 @@ class HeaderPanel(ttk.Frame):
             card.destroy()
         self._cards = []
         self._channels = list(channels)
+
+        # 前回の列の重みを消す。残すと ch が減ったときに空の列が幅を取り続ける
+        for col in range(self._grid_columns):
+            self._card_area.columnconfigure(col, weight=0, uniform="")
 
         compact = len(channels) > LARGE_CARD_LIMIT
         for pos, ch in enumerate(channels):
@@ -82,9 +89,15 @@ class HeaderPanel(ttk.Frame):
                     pady=(0, 6),
                 )
             else:
+                # 大型カードは残り幅を均等に分け合う。固定幅だと最小ウィンドウ幅で
+                # 入りきらず、ウィンドウを広げても右に空きができる。
+                # padx は全カード同じにする。末尾だけ変えると uniform でもカードの
+                # 実幅が 10px ずれて、スパークラインの有無が隣と食い違う
                 card = ChannelCard(self._card_area, name, color, text_color)
-                card.grid(row=0, column=pos, padx=(0, 10))
+                card.grid(row=0, column=pos, sticky="ew", padx=(0, 10))
+                self._card_area.columnconfigure(pos, weight=1, uniform="card")
             self._cards.append(card)
+        self._grid_columns = max(self._grid_columns, len(channels))
 
     # ------------------------------------------------------------------ update
 

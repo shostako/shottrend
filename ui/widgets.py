@@ -220,10 +220,16 @@ class ChannelCard(tk.Canvas):
 
     カード全体を Canvas に描くことで、角丸や色チップ、数値の位置を自由に
     決められる。ttk のウィジェットを組み合わせるより見た目を詰めやすい。
+
+    幅は親のグリッドに追従する（WIDTH は最小幅）。狭いときはスパークラインを
+    落として数値を優先する。
     """
 
-    WIDTH = 364
+    WIDTH = 300
     HEIGHT = 150
+    #: スパークラインの幅の範囲。これより狭くなるなら描かない
+    SPARK_MIN_WIDTH = 90
+    SPARK_MAX_WIDTH = 220
 
     def __init__(self, parent: tk.Misc, name: str, color: str, text_color: str) -> None:
         super().__init__(
@@ -241,7 +247,13 @@ class ChannelCard(tk.Canvas):
         self._delta: float | None = None
         self._series: list[float] = []
         self._stats = None
+        self.bind("<Configure>", lambda _e: self._redraw())
         self._redraw()
+
+    def _width(self) -> int:
+        # 配置前は winfo_width() が 1 を返す
+        w = self.winfo_width()
+        return w if w > 1 else self.WIDTH
 
     def set_data(self, value, delta, series, stats) -> None:
         self._value = value
@@ -254,7 +266,7 @@ class ChannelCard(tk.Canvas):
 
     def _redraw(self) -> None:
         self.delete("all")
-        w, h = self.WIDTH, self.HEIGHT
+        w, h = self._width(), self.HEIGHT
         round_rect(self, 1, 1, w - 1, h - 1, 8, fill=theme.PANEL, outline=theme.PANEL_EDGE)
 
         # 左端の色帯。どのチャンネルのカードか離れていても分かる
@@ -279,9 +291,16 @@ class ChannelCard(tk.Canvas):
         )
         # 単位は数値の実寸に合わせて添える。見出しに置くと数字と離れて読みにくい
         x_end = self.bbox(num)[2]
-        self.create_text(x_end + 6, 74, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_SMALL)
+        unit = self.create_text(
+            x_end + 6, 74, text="MPa", anchor="w", fill=theme.DIM, font=theme.F_SMALL
+        )
 
-        self._draw_sparkline(w - 128, 44, 112, 32)
+        # スパークラインは単位の右から右端までを使う。数値の実寸から位置を決めるので
+        # 幅が変わっても重ならない。狭くて描く余地が無ければ落とす（数値を優先）
+        spark_x = self.bbox(unit)[2] + 14
+        spark_w = min(self.SPARK_MAX_WIDTH, w - 16 - spark_x)
+        if spark_w >= self.SPARK_MIN_WIDTH:
+            self._draw_sparkline(w - 16 - spark_w, 44, spark_w, 32)
         self._draw_stats(20, 100, w - 20)
 
     def _draw_delta(self, x: float, y: float) -> None:
@@ -356,7 +375,7 @@ class ChannelCard(tk.Canvas):
 class InfoCard(tk.Canvas):
     """補助情報（ch 間の差・サイクル・表示件数など）をまとめる小さなカード。"""
 
-    WIDTH = 262
+    WIDTH = 240
     HEIGHT = 150
 
     def __init__(self, parent: tk.Misc, title: str) -> None:
