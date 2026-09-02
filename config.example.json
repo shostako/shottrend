@@ -4,6 +4,8 @@
   "session_rescan_ticks": 10,
   "window_size": 50,
   "chart_kind": "line",
+  "metric": "peak",
   "composite_mode": "max",
+  "show_delta_columns": false,
   "geometry": "1280x880+30+16"
 }

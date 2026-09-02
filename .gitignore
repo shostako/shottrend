@@ -16,3 +16,7 @@ __pycache__/
 
 # 一時作業用
 .tmp/
+
+# PyInstaller の成果物
+build/
+dist/

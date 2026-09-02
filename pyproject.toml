@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shot-monitor"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Realtime shot-to-shot cavity pressure peak monitor for Futaba MPS08B (Mold Marshalling System)."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -26,15 +26,21 @@ dev = [
     "pytest>=7.4",
     "ruff>=0.5",
 ]
+build = [
+    "pyinstaller>=6.0",
+]
 
 [tool.setuptools]
 packages = ["core", "ui"]
+
+[tool.setuptools.dynamic]
+version = { attr = "core.version.__version__" }
 
 # ---------- ruff ----------
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = [".venv", ".venv-win", "logs", "docs"]
+extend-exclude = [".venv", ".venv-win", "logs", "docs", "build", "dist"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]

@@ -9,9 +9,9 @@ import logging
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
-from core.config import AppConfig, load_config, save_config
+from core.config import AppConfig, config_path, load_config, save_config
 from core.discovery import DataRootScanner
 from core.history import ShotHistory
 from core.models import Session
@@ -24,6 +24,7 @@ from core.monitor import (
     MonitorService,
 )
 from core.stats import window_stats
+from core.version import __version__
 
 from . import theme
 from .chart import ShotChart
@@ -85,9 +86,21 @@ class MonitorApp:
         filemenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_command(label="MMS_DATA フォルダを選ぶ...", command=self.choose_data_dir)
         filemenu.add_separator()
+        filemenu.add_command(label="バージョン情報", command=self.show_about)
+        filemenu.add_separator()
         filemenu.add_command(label="終了", command=self.on_close)
         menubar.add_cascade(label="ファイル", menu=filemenu)
         self.root.config(menu=menubar)
+
+    def show_about(self) -> None:
+        messagebox.showinfo(
+            "shot-monitor",
+            f"shot-monitor {__version__}\n"
+            "MPS08B (Mold Marshalling System) 演算値トレンドモニタ\n\n"
+            f"設定: {config_path()}\n"
+            f"データ: {self.cfg.mms_data_dir or '(未設定)'}",
+            parent=self.root,
+        )
 
     def _build_layout(self) -> None:
         # 本体アプリの上部モード帯に相当。離れた位置からでも状態が読める
