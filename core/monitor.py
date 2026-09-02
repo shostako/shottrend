@@ -119,7 +119,7 @@ class MonitorService:
             session=self.session,
             reloaded=result.reloaded,
             status=self._status(now),
-            message=self._message(now, result.skipped),
+            message=self._message(result.skipped),
         )
 
     # ------------------------------------------------------------------- status
@@ -140,24 +140,10 @@ class MonitorService:
         elapsed = (now - latest.dt).total_seconds()
         return STATUS_RUNNING if elapsed <= self.idle_threshold_sec() else STATUS_IDLE
 
-    def _message(self, now: datetime, skipped: int) -> str:
+    def _message(self, skipped: int) -> str:
         latest = self.history.latest()
         if latest is None:
             return "データなし"
-        elapsed = (now - latest.dt).total_seconds()
-        if elapsed > self.idle_threshold_sec():
-            return f"最終ショットから {_duration_text(elapsed)}"
         if skipped:
             return f"{skipped}行スキップ"
         return ""
-
-
-def _duration_text(sec: float) -> str:
-    sec = max(0.0, sec)
-    if sec < 60:
-        return f"{sec:.0f}秒"
-    if sec < 3600:
-        return f"{sec / 60:.0f}分"
-    if sec < 86400:
-        return f"{sec / 3600:.1f}時間"
-    return f"{sec / 86400:.1f}日"

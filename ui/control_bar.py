@@ -104,13 +104,16 @@ class ControlBar(ttk.Frame):
             48,
         )
 
-        self.delta_group = self._group(
-            "差分列",
-            [(False, "隠す"), (True, "出す")],
-            cfg.show_delta_columns,
-            on_delta,
-            46,
-        )
+        # 差分列は「出す／出さない」の二値なのでチェックボックス。セグメント型に
+        # すると他の三択と同列に見えて、選択肢が 2 つしかない理由が伝わらない
+        self._delta_var = tk.BooleanVar(value=bool(cfg.show_delta_columns))
+        ttk.Checkbutton(
+            self,
+            text="差分列",
+            variable=self._delta_var,
+            command=lambda: on_delta(self._delta_var.get()),
+            style="TCheckbutton",
+        ).pack(side="left", padx=(0, 22))
 
         self.legend = _Legend(self)
         self.legend.pack(side="right")

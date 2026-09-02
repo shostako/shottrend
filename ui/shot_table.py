@@ -3,8 +3,9 @@
 列は使用中の ch に合わせて組み直す。差分（前ショットとの差、ch 間のばらつき）
 は既定では出さない。列が増えるとぱっと見の認識が鈍るため。
 
-幅はウィンドウに合わせて全列が均等に伸びる。右端には余白列を置いて、
-最後の数値が枠に張り付かないようにしている。
+数値列は内容に合わせた固定幅で左に詰め、余った幅は右端の余白列に吸わせる。
+全列を均等に伸ばすと 5 桁の数値が 150px 幅の列に散らばり、行を横に読む
+目の移動が大きくなって却って読みにくい。
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from core.stats import COMPOSITE_LABELS, composite
 
 from . import theme
 
-#: 右端の余白。最後の数値が枠に張り付くのを防ぐためだけの列
+#: 右端の余白列。余った幅を全部引き受けて、数値列を左に詰めたまま保つ
 PAD_KEY = "pad"
 PAD_WIDTH = 16
 
@@ -41,8 +42,10 @@ class ShotTable(ttk.Frame):
         self._channels: list[int] = []
         self._composite_mode = "max"
 
+        # 行を選んでも何も起きないので選択自体を切る。選択色と最新行の色が同系で、
+        # クリックすると「最新」が 2 行あるように見えていた
         self.tree = ttk.Treeview(
-            self, columns=(), show="headings", selectmode="browse", height=VISIBLE_ROWS
+            self, columns=(), show="headings", selectmode="none", height=VISIBLE_ROWS
         )
         vscroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         # ch が増えると列が画面幅に収まらない (8ch + 差分列で 20 列になる)
@@ -93,18 +96,18 @@ class ShotTable(ttk.Frame):
     def _column_spec(self) -> list[tuple[str, str, int, str]]:
         """(key, 見出し, 最小幅, 寄せ) の並びを作る。"""
         spec: list[tuple[str, str, int, str]] = [
-            ("shot", "Shot", 70, "e"),
-            ("time", "Time", 92, "center"),
+            ("shot", "Shot", 64, "e"),
+            ("time", "Time", 88, "center"),
         ]
         for ch in self._channels:
             name = theme.ch_name(ch)
-            spec.append((f"ch{ch}", name, 84, "e"))
+            spec.append((f"ch{ch}", name, 80, "e"))
             if self._show_delta:
-                spec.append((f"d{ch}", f"Δ{name}", 84, "e"))
-        spec.append(("comp", COMPOSITE_LABELS.get(self._composite_mode, "最大"), 84, "e"))
+                spec.append((f"d{ch}", f"Δ{name}", 80, "e"))
+        spec.append(("comp", COMPOSITE_LABELS.get(self._composite_mode, "最大"), 80, "e"))
         if self._show_delta and len(self._channels) >= 2:
-            spec.append(("spread", "ばらつき", 92, "e"))
-        spec.append(("interval", "interval", 92, "e"))
+            spec.append(("spread", "ばらつき", 84, "e"))
+        spec.append(("interval", "interval", 84, "e"))
         spec.append((PAD_KEY, "", PAD_WIDTH, "center"))
         return spec
 
@@ -114,9 +117,9 @@ class ShotTable(ttk.Frame):
         self.tree.configure(columns=keys, displaycolumns=keys)
         for key, title, width, anchor in spec:
             self.tree.heading(key, text=title, anchor=anchor)
-            # 余白列だけは伸ばさない。それ以外はウィンドウ幅を均等に分け合う
+            # 伸びるのは余白列だけ。数値列は固定幅で左に詰める
             self.tree.column(
-                key, width=width, minwidth=width, anchor=anchor, stretch=key != PAD_KEY
+                key, width=width, minwidth=width, anchor=anchor, stretch=key == PAD_KEY
             )
 
     # ------------------------------------------------------------------ rows
