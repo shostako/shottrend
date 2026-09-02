@@ -1,0 +1,49 @@
+# 変更履歴
+
+[Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠、[セマンティック バージョニング](https://semver.org/lang/ja/) に従う。
+`0.x` 系のため、マイナー版の更新に後方非互換の変更を含むことがある。
+
+## [未リリース]
+
+### 追加
+
+- GitHub Actions のワークフロー 3 本。`ci.yml`（ruff check / ruff format --check / pytest を Python 3.12 で）、
+  `claude.yml`（`@claude` メンションで起動）、`claude-review.yml`（PR を開いた時点で自動レビュー）。
+  自動レビューは `opened` と `ready_for_review` のみで発火し `synchronize` では発火しない。
+  修正 push のたびに再レビューが積むのを避けるため。再レビューが要るときは `@claude` で呼ぶ
+- 本ファイル（CHANGELOG）
+
+### 変更
+
+- `requires-python` を `>=3.11` から `>=3.12` に。ruff の `target-version` も classifier も 3.12 のみで、
+  現場 PC も 3.12 固定。CI で検証しない 3.11 互換を名乗るのをやめた
+
+## [0.1.0] — 2026-09-02
+
+MPS08B のサマリ CSV を追従してショットごとのピーク圧力を数値で見せる常駐アプリの初版。
+純正トレンドビューアは値をグラフに出さない（クリックして 1 点ずつステータスバーに出すしかない）ため、
+「最新ショットと直近 N ショットのピークが一目で読める」ことだけに絞って作った。
+
+### 追加
+
+- `core/`（tkinter を import しない層）: `models` / `config` / `discovery` / `csvsource` / `history` /
+  `stats` / `monitor`。判断は `MonitorService.poll()` に閉じ込め、GUI 無しで pytest から全部検証できる
+- 実データの癖への対処。計測の中断→再開ごとにファイル途中へ再挿入されるヘッダ行（実測 247 行中 6 回）、
+  飛ぶが巻き戻らないショット番号（shot_no をキーに冪等）、CRLF・末尾カンマ・0 行 CSV、
+  追記中に読んだ不完全な最終行の保留
+- 最新セッションの判定を CSV の mtime のみで行う。`separate_20260219` のような名前や同日 2 フォルダ併存が実在し、
+  フォルダ名ソートは必ず誤答する
+- 停止判定の閾値を直近 10 ショットの interval 中央値 × 3（90〜600 秒でクランプ）で決める。
+  `interval` は実測 0.0〜1,288,852 秒でばらつき、固定閾値が使えない
+- MMS_DATA のパスを `config.json` で持ち、GUI から変更できるようにした（原子的書き込み）
+- `tools/fake_writer.py`: 追記シミュレータ。中断（ヘッダ再挿入＋ショット番号の飛び）も再現する
+- チャンネル数の可変化。`Shot.peaks` を可変長にし、ヘッダの `CHnn_peak` を CH01 から連番で拾う。最大 32ch。
+  未接続 ch も本体は 0.00 で書き続けるため、表示対象は「一度でも非ゼロだった ch」（`used_channels()`）で決める。
+  4ch 以上でカードは小型版へ自動切替
+- UI は MPS08B 本体アプリの配色と情報設計に倣う。明るい地（`#F2F5FF`）にグラフだけ黒、
+  状態を示す色帯、色チップ付きリスト、単位の角括弧表記。線色は本体 `init.xml` の `waveColor` 8 色を巡回し、
+  明るい地で読めない色（黄・シアン・緑）は文字用に沈めた版を別に持つ
+- 単体テスト 34 件。合成 CSV（104 列・CRLF・末尾カンマ）で不完全行・ヘッダ再挿入・トランケート復帰・mtime 判定を検証
+
+[未リリース]: https://github.com/shostako/shot-monitor/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/shostako/shot-monitor/releases/tag/v0.1.0

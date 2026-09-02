@@ -1,6 +1,7 @@
 # shot-monitor
 
-射出成形の金型内圧モニタリングシステム **Futaba MPS08B (Mold Marshalling System)** が出力するサマリ CSV を追従し、ショットごとのピーク圧力（CH01 / CH02）の履歴を**数値で読める形**でリアルタイム表示する常駐デスクトップアプリ。
+射出成形の金型内圧モニタリングシステム **Futaba MPS08B (Mold Marshalling System)** が出力するサマリ CSV を追従し、ショットごとのピーク圧力の履歴を**数値で読める形**でリアルタイム表示する常駐デスクトップアプリ。
+チャンネル数は固定せず、本体アプリの最大構成である 32ch（アンプ 4 台）まで受け入れる。
 
 Python 標準ライブラリのみで動く（tkinter は Python 同梱）。追加インストールは不要。
 
@@ -12,13 +13,15 @@ MPS08B には純正のトレンドビューアがあり、ピーク値の折れ�
 
 ## 画面
 
-- **最新ショットの CH01 / CH02 のピーク値を大きく表示**（本アプリの存在理由）
+- **最新ショットの各 ch のピーク値を大きく表示**（本アプリの存在理由）。ch が 4 本以上ならカードは小型版へ自動で切り替わる
 - 表示中N件の max / min / avg / σ
 - ショット推移グラフ（折れ線／棒、10 / 50 / 100 件切替）
-- 数値テーブル（Shot / Time / CH01 / CH02 / 合成値 / interval、最新が上）
-- 合成値は 1 ショット内の CH01・CH02 から求める **最大 / 最小 / 平均 / 差** を切替
+- 数値テーブル（Shot / Time / 各 ch / 合成値 / interval、最新が上）
+- 合成値は 1 ショット内の全 ch から求める **最大 / 最小 / 平均 / 差** を切替
 
-配色は MPS08B 本体の `init.xml` の `waveColor` に合わせてある（CH01=赤、CH02=オレンジ、黒背景）。本体の波形画面と並べたときに同じセンサが同じ色で見える。
+表示するのは**一度でも非ゼロの値が来た ch** だけ。MPS08B は未接続の ch も `0.00` を書き続けるため、列の有無では使用中か判別できない。
+
+配色は MPS08B 本体に倣い、**明るい地（`#F2F5FF`）にグラフエリアだけ黒**。線色は本体 `init.xml` の `waveColor` 8 色（CH01=赤、CH02=オレンジ…）を巡回するので、本体の波形画面と並べたときに同じセンサが同じ色で見える。ただし明るい地の上では黄・シアン・緑がそのままでは読めないため、文字用には沈めた版を別に持っている。
 
 ## 使い方
 
@@ -36,6 +39,9 @@ py -3.12 app.pyw
 
 ```bash
 python tools/fake_writer.py --root /tmp/fake_mms --interval 2
+
+# 多 ch の画面確認
+python tools/fake_writer.py --root /tmp/fake_mms --interval 2 --channels 8
 ```
 
 別途アプリ側の MMS_DATA をそのフォルダに向ける。中断（ヘッダ再挿入＋ショット番号の飛び）も再現される。
@@ -50,7 +56,7 @@ MPS08B が書く日次サマリ CSV だけを読む。生波形（`ALL_*.csv`、
     ALL_*.csv                 ← 生波形（使わない）
 ```
 
-104 列のうち使うのは `DateTime` / `interval` / `Shot` / `CH01_peak` / `CH02_peak` の 5 列。列は位置ではなく**名前で引く**。
+104 列のうち使うのは `DateTime` / `interval` / `Shot` と、`CH01_peak` から連番で見つかるだけの `CHnn_peak`。列は位置ではなく**名前で引く**。
 
 計測中でもファイルは読める（`FileShare.ReadWrite` で開かれている）ため、本体アプリと同時に動かして問題ない。
 
@@ -82,8 +88,14 @@ tools/    fake_writer.py  追記シミュレータ
 
 ## 開発
 
+Python 3.12 以上。
+
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m pytest
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 ```
+
+CI（GitHub Actions）は master への push と PR で `ruff check` / `ruff format --check` / `pytest` を回す。
+PR を開くと Claude が自動でレビューを付ける（修正 push では再発火しないので、直したうえで見直してほしいときは
+PR に `@claude` とコメントする）。

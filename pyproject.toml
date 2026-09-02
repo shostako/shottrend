@@ -7,7 +7,7 @@ name = "shot-monitor"
 version = "0.1.0"
 description = "Realtime shot-to-shot cavity pressure peak monitor for Futaba MPS08B (Mold Marshalling System)."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "shostako" }]
 keywords = ["injection-molding", "cavity-pressure", "mps08b", "mold-marshalling-system", "monitoring"]
 classifiers = [
