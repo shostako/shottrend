@@ -1,0 +1,9 @@
+{
+  "mms_data_dir": "",
+  "poll_interval_ms": 2000,
+  "session_rescan_ticks": 10,
+  "window_size": 50,
+  "chart_kind": "line",
+  "composite_mode": "max",
+  "geometry": "1180x760"
+}
