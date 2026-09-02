@@ -75,7 +75,9 @@ def load_config(path: Path | None = None) -> AppConfig:
     if not p.is_file():
         return AppConfig()
     try:
-        raw = json.loads(p.read_text(encoding="utf-8"))
+        # utf-8-sig: メモ帳や PowerShell 5.1 の Set-Content が付ける BOM を許容する。
+        # 素の utf-8 だと「Unexpected UTF-8 BOM」で丸ごと既定値に落ちる
+        raw = json.loads(p.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         log.warning("config unreadable (%s), using defaults: %s", p, exc)
         return AppConfig()

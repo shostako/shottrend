@@ -2,6 +2,9 @@
 
 pythonw.exe (窓なし) で起動されると sys.stdout が None になるため、
 その場合はログをファイルへ回す。py.exe で手動起動したときは画面に出す。
+
+PyInstaller で固めた exe でも同じファイル。frozen のとき __file__ は展開先の
+一時ディレクトリを指すので、ログと設定の置き場は exe の隣に固定する。
 """
 
 from __future__ import annotations
@@ -12,8 +15,13 @@ import sys
 import tkinter as tk
 from pathlib import Path
 
-APP_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(APP_DIR))
+if getattr(sys, "frozen", False):
+    # onefile の exe は起動ごとに一時ディレクトリへ展開される。そこにログを
+    # 書くと終了時に消えるので、置き場は exe の隣にする（core.config も同じ判定）
+    APP_DIR = Path(sys.executable).resolve().parent
+else:
+    APP_DIR = Path(__file__).resolve().parent
+    sys.path.insert(0, str(APP_DIR))
 
 LOG_DIR = APP_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"

@@ -24,3 +24,10 @@ def test_unknown_keys_are_ignored(tmp_path):
     p = tmp_path / "config.json"
     p.write_text(json.dumps({"metric": "integral", "bogus": 1}), encoding="utf-8")
     assert load_config(p).metric == "integral"
+
+
+def test_config_with_utf8_bom_is_read(tmp_path):
+    """メモ帳や PowerShell 5.1 が付ける BOM 付きでも読める。"""
+    p = tmp_path / "config.json"
+    p.write_bytes(b"\xef\xbb\xbf" + json.dumps({"metric": "integral"}).encode("utf-8"))
+    assert load_config(p).metric == "integral"

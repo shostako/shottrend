@@ -8,12 +8,26 @@ MPS08B（Futaba 金型内圧計測システム）のサマリ CSV を追従し�
 - 開発は WSL、実行は **Windows 側の Python 3.12**（`C:/Users/<user>/AppData/Local/Programs/Python/Python312/python.exe`）
   - PATH 先頭の `python` は Hermes の venv なので使わない。scoop に python は入っていない
   - WSL 上のコードを Windows から動かすなら `\\wsl.localhost\<WSL_DISTRO_NAME>\home\<user>\ClaudeCode\shot-monitor\app.pyw`。ディストロ名はハードコードせず `$WSL_DISTRO_NAME` を使う
-- テストと lint は WSL 側の `.venv` で回す
+- テストと lint は WSL 側の `.venv` で回す。**`.venv` は Python 3.12**（`uv venv --python 3.12 .venv`）。Ubuntu 22.04 の `python3` は 3.10 で `requires-python >=3.12` に弾かれる
 
 ```bash
 .venv/bin/python -m pytest
 .venv/bin/ruff check . && .venv/bin/ruff format .
 ```
+
+## 配布物
+
+- `tools/build.py` が PyInstaller で `dist/shot-monitor.exe`（onefile, windowed）と zip を作る。**Windows 上でしか動かない**
+- 手元で組むときは WSL のツリーを Windows 側へコピーしてから（`robocopy` で `.git` `.venv` `logs` `build` `dist` `config.json` を除外）。UNC パス上で PyInstaller を回さない。ビルド用 venv は `%LOCALAPPDATA%\shot-monitor-build\venv`
+- リリースは `v<version>` タグの push だけ。`release.yml` が Windows で lint・テスト・ビルドを通し、CHANGELOG の該当節を本文に Release を作る。タグと `core/version.py` が食い違うと止まる
+- バージョンは `core/version.py` が単一ソース。上げるときは CHANGELOG に節を切る
+- exe の動作確認は、**空のフォルダに exe と config.json だけ置いて起動**する（開発ツリーで起動すると隣の `config.json` や `logs/` を拾って frozen 判定の穴が見えない）。`logs/app.log` が exe の隣にできれば frozen 判定は効いている
+
+### PyInstaller で踏んだ罠
+
+- **`excludes` に標準ライブラリを推測で入れない。** `urllib` を除外したら `pathlib`（3.12 は `urllib.parse` を import する）が巻き添えで死に、起動時に `ModuleNotFoundError` で落ちた。windowed の exe は「Unhandled exception in script」としか出さないので原因が見えない。console=True の一時 spec を組んでトレースバックを取る
+- PowerShell 5.1 の `Get-Content`/`Set-Content` は既定が cp932。spec や `.py` を通すと UTF-8 のコメントが壊れて `SyntaxError: (unicode error)` になる。必ず `-Encoding UTF8`
+- 同じ理由で PowerShell 5.1 の `Set-Content -Encoding UTF8` は **BOM を付ける**。`config.json` は `utf-8-sig` で読む（メモ帳で編集しても同じ BOM が付く）
 
 ## 設計上の約束
 
