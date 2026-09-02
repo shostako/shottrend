@@ -50,13 +50,18 @@ jobs:
 
       - name: Extract release notes from CHANGELOG
         shell: bash
+        # stdout に出さずファイルへ utf-8 で書く。Windows の Python は stdout が cp1252 で、
+        # 日本語を print した時点で UnicodeEncodeError になる（v0.2.0 の初回で踏んだ）
+        env:
+          PYTHONUTF8: "1"
         run: |
-          python - <<'PY' > release_notes.md
+          python - <<'PY'
           import re
           from core.version import __version__
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"^## \[{re.escape(__version__)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
-          print(m.group(1).strip() if m else "（CHANGELOG に該当節なし）")
+          body = m.group(1).strip() if m else "（CHANGELOG に該当節なし）"
+          open("release_notes.md", "w", encoding="utf-8").write(body + "\n")
           PY
           cat release_notes.md
 
