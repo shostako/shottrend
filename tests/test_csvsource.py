@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.csvsource import SummaryCsvReader
+from shottrend.core.csvsource import SummaryCsvReader
 
 from .conftest import HEADER_LINE, data_line
 
@@ -289,7 +289,7 @@ def test_fallback_colmap_matches_real_header():
     フォールバックは列位置の決め打ちなので、並びが違ってもエラーにならず
     それらしい間違った値を返す。実機ヘッダ（conftest とは別の写し）と突き合わせる。
     """
-    from core.csvsource import _FALLBACK_COLMAP, _build_colmap
+    from shottrend.core.csvsource import _FALLBACK_COLMAP, _build_colmap
 
     fields = REAL_HEADER_1_3_0_5.split(",")
     assert len(fields) == 104

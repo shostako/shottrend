@@ -13,10 +13,10 @@ from __future__ import annotations
 import math
 import tkinter as tk
 
-from core.history import find_gaps
-from core.metrics import DEFAULT_METRIC
-from core.metrics import metric as metric_of
-from core.models import Shot
+from shottrend.core.history import find_gaps
+from shottrend.core.metrics import DEFAULT_METRIC
+from shottrend.core.metrics import metric as metric_of
+from shottrend.core.models import Shot
 
 from . import theme
 

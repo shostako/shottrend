@@ -1,4 +1,4 @@
-"""shot-monitor エントリポイント。
+"""ShotTrend エントリポイント。
 
 pythonw.exe (窓なし) で起動されると sys.stdout が None になるため、
 その場合はログをファイルへ回す。py.exe で手動起動したときは画面に出す。
@@ -15,13 +15,16 @@ import sys
 import tkinter as tk
 from pathlib import Path
 
-if getattr(sys, "frozen", False):
-    # onefile の exe は起動ごとに一時ディレクトリへ展開される。そこにログを
-    # 書くと終了時に消えるので、置き場は exe の隣にする（core.config も同じ判定）
-    APP_DIR = Path(sys.executable).resolve().parent
-else:
-    APP_DIR = Path(__file__).resolve().parent
-    sys.path.insert(0, str(APP_DIR))
+if not getattr(sys, "frozen", False):
+    # ソース実行: パッケージを見つけられるように、このファイルの隣を先頭に足す
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from shottrend.core.config import app_dir  # noqa: E402
+
+# ログと設定の置き場。判定は core.config.app_dir() の 1 箇所に寄せる。
+# frozen なら exe の隣（onefile は起動ごとに一時ディレクトリへ展開されるので
+# __file__ 基準だと終了時に消える）、ソース実行なら app.pyw の隣
+APP_DIR = app_dir()
 
 LOG_DIR = APP_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
@@ -67,10 +70,10 @@ def enable_dpi_awareness() -> None:
 def main() -> int:
     setup_logging()
     enable_dpi_awareness()
-    logging.info("===== shot-monitor start =====")
+    logging.info("===== ShotTrend start =====")
 
     try:
-        from ui.app import MonitorApp
+        from shottrend.ui.app import MonitorApp
 
         root = tk.Tk()
         MonitorApp(root)
@@ -80,7 +83,7 @@ def main() -> int:
         # ここを握らないと「起動しない」としか分からなくなる。
         logging.exception("fatal: application terminated")
         return 1
-    logging.info("===== shot-monitor stop =====")
+    logging.info("===== ShotTrend stop =====")
     return 0
 
 

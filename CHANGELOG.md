@@ -5,6 +5,16 @@
 
 ## [未リリース]
 
+### 変更
+
+- **改名: shot-monitor → ShotTrend（`shottrend`）。** 「1 ショット 1 行の CSV を追従して推移を見る」道具として
+  MPS08B 専用の名前から離れた。exe は `shottrend.exe`、zip は `shottrend-<version>-win64.zip`。
+  GitHub の旧 URL はリダイレクトされる。`config.json` の中身と置き場は変わらない。
+  **既存環境は古い `shot-monitor.exe` を削除し、ショートカットを張り替えること**（2 本残すと同じ
+  `config.json` と `logs/` を奪い合う）
+- パッケージを `shottrend/core` `shottrend/ui` に寄せた。トップレベルの `core` / `ui` は汎用すぎて
+  他のパッケージと衝突する
+
 ## [0.2.0] — 2026-09-03
 
 **配布できる形になった。** Windows 用の単体 exe を GitHub Release に置き、現場 PC には Python 無しで入れられる。
@@ -80,6 +90,6 @@ MPS08B のサマリ CSV を追従してショットごとのピーク圧力を�
   明るい地で読めない色（黄・シアン・緑）は文字用に沈めた版を別に持つ
 - 単体テスト 34 件。合成 CSV（104 列・CRLF・末尾カンマ）で不完全行・ヘッダ再挿入・トランケート復帰・mtime 判定を検証
 
-[未リリース]: https://github.com/shostako/shot-monitor/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/shostako/shot-monitor/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/shostako/shot-monitor/releases/tag/v0.1.0
+[未リリース]: https://github.com/shostako/shottrend/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/shostako/shottrend/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/shostako/shottrend/releases/tag/v0.1.0

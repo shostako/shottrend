@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shot-monitor"
+name = "shottrend"
 dynamic = ["version"]
-description = "Realtime shot-to-shot cavity pressure peak monitor for Futaba MPS08B (Mold Marshalling System)."
+description = "Shot-to-shot trend monitor for one-row-per-shot CSV logs. Supports Futaba MPS08B (Mold Marshalling System)."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "shostako" }]
-keywords = ["injection-molding", "cavity-pressure", "mps08b", "mold-marshalling-system", "monitoring"]
+keywords = ["injection-molding", "cavity-pressure", "shot-monitoring", "mps08b", "mold-marshalling-system", "trend"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Manufacturing",
@@ -30,11 +30,11 @@ build = [
     "pyinstaller>=6.0",
 ]
 
-[tool.setuptools]
-packages = ["core", "ui"]
+[tool.setuptools.packages.find]
+include = ["shottrend*"]
 
 [tool.setuptools.dynamic]
-version = { attr = "core.version.__version__" }
+version = { attr = "shottrend.core.version.__version__" }
 
 # ---------- ruff ----------
 [tool.ruff]

@@ -1,13 +1,18 @@
-# shot-monitor プロジェクト設定
+# ShotTrend プロジェクト設定
 
-MPS08B（Futaba 金型内圧計測システム）のサマリ CSV を追従して、ショットごとの演算値（ピーク圧力など）を数値で見せる常駐 Tkinter アプリ。背景と全体像は `README.md` を読むこと。
+1 ショット 1 行の CSV を追従してショットごとの値の推移を数値で見せる常駐 Tkinter アプリ。現状の対応データ源は MPS08B（Futaba 金型内圧計測システム）のサマリ CSV。背景と全体像は `README.md` を読むこと。
+
+## 名前
+
+- 表示名は **ShotTrend**、機械が読む名前（リポ・パッケージ・exe・pyproject）は **`shottrend`** 小文字一語。`shot-trend` / `shot_trend` は使わない
+- 旧名 `shot-monitor`（v0.2.0 まで）。GitHub の旧 URL はリダイレクトされる
 
 ## 開発と実行
 
 - **依存は標準ライブラリのみ**。この方針を崩さない。現場PCに置いて `py app.pyw` で動くことが最大の価値
 - 開発は WSL、実行は **Windows 側の Python 3.12**（`C:/Users/<user>/AppData/Local/Programs/Python/Python312/python.exe`）
   - PATH 先頭の `python` は Hermes の venv なので使わない。scoop に python は入っていない
-  - WSL 上のコードを Windows から動かすなら `\\wsl.localhost\<WSL_DISTRO_NAME>\home\<user>\ClaudeCode\shot-monitor\app.pyw`。ディストロ名はハードコードせず `$WSL_DISTRO_NAME` を使う
+  - WSL 上のコードを Windows から動かすなら `\\wsl.localhost\<WSL_DISTRO_NAME>\home\<user>\ClaudeCode\shottrend\app.pyw`。ディストロ名はハードコードせず `$WSL_DISTRO_NAME` を使う
 - テストと lint は WSL 側の `.venv` で回す。**`.venv` は Python 3.12**（`uv venv --python 3.12 .venv`）。Ubuntu 22.04 の `python3` は 3.10 で `requires-python >=3.12` に弾かれる
 
 ```bash
@@ -17,10 +22,10 @@ MPS08B（Futaba 金型内圧計測システム）のサマリ CSV を追従し�
 
 ## 配布物
 
-- `tools/build.py` が PyInstaller で `dist/shot-monitor.exe`（onefile, windowed）と zip を作る。**Windows 上でしか動かない**
-- 手元で組むときは WSL のツリーを Windows 側へコピーしてから（`robocopy` で `.git` `.venv` `logs` `build` `dist` `config.json` を除外）。UNC パス上で PyInstaller を回さない。ビルド用 venv は `%LOCALAPPDATA%\shot-monitor-build\venv`
-- リリースは `v<version>` タグの push だけ。`release.yml` が Windows で lint・テスト・ビルドを通し、CHANGELOG の該当節を本文に Release を作る。タグと `core/version.py` が食い違うと止まる
-- バージョンは `core/version.py` が単一ソース。上げるときは CHANGELOG に節を切る
+- `tools/build.py` が PyInstaller で `dist/shottrend.exe`（onefile, windowed）と zip を作る。**Windows 上でしか動かない**
+- 手元で組むときは WSL のツリーを Windows 側へコピーしてから（`robocopy` で `.git` `.venv` `logs` `build` `dist` `config.json` を除外）。UNC パス上で PyInstaller を回さない。ビルド用 venv は `%LOCALAPPDATA%\shottrend-build\venv`
+- リリースは `v<version>` タグの push だけ。`release.yml` が Windows で lint・テスト・ビルドを通し、CHANGELOG の該当節を本文に Release を作る。タグと `shottrend/core/version.py` が食い違うと止まる
+- バージョンは `shottrend/core/version.py` が単一ソース。上げるときは CHANGELOG に節を切る
 - exe の動作確認は、**空のフォルダに exe と config.json だけ置いて起動**する（開発ツリーで起動すると隣の `config.json` や `logs/` を拾って frozen 判定の穴が見えない）。`logs/app.log` が exe の隣にできれば frozen 判定は効いている
 
 ### PyInstaller で踏んだ罠
@@ -31,7 +36,7 @@ MPS08B（Futaba 金型内圧計測システム）のサマリ CSV を追従し�
 
 ## 設計上の約束
 
-**`core/` に tkinter を import しない。** これが崩れるとテストが GUI 環境を要求するようになる。UI 層は `MonitorService.poll()` を呼んで結果を描くだけで、判断ロジックを持たない。
+**`shottrend/core/` に tkinter を import しない。** これが崩れるとテストが GUI 環境を要求するようになる。UI 層は `MonitorService.poll()` を呼んで結果を描くだけで、判断ロジックを持たない。
 
 **絶対パスを埋め込まない。** MMS_DATA の場所は `config.json` にあり GUI から変更できる。開発中に実際にユーザーがアプリ一式を Desktop から Documents へ移動した。
 
@@ -44,7 +49,7 @@ CSV はヘッダにある `CHnn_<項目>` を項目ごとに全部読み、`Shot
 書き続けるので、列の有無では判別できない。ch が 4 本以上になったらカードは
 自動で小型版に切り替わる。
 
-**表示項目は全 ch 共通で 1 つ。** 項目の一覧と表示名・単位・桁数は `core/metrics.py`
+**表示項目は全 ch 共通で 1 つ。** 項目の一覧と表示名・単位・桁数は `shottrend/core/metrics.py`
 が単一ソース。ch ごとに項目を変えられる作りにしない（縦軸が 1 本のグラフに載らず、
 合成値も意味を失う）。センサ接続の判定は表示項目に関係なくピークで行う。
 
@@ -87,7 +92,7 @@ object is not callable` で初期化ごと死ぬ。属性の代入は必ず `sup
 ```bash
 .venv/bin/python -c "
 from pathlib import Path
-from core.csvsource import SummaryCsvReader
+from shottrend.core.csvsource import SummaryCsvReader
 f = Path('/mnt/c/Users/<user>/Documents/MPS08B_Application_1_3_0_5/MMS_DATA/20260821_setting001_20260831/20260821_setting001_20260831.csv')
 r = SummaryCsvReader(f).read_new()
 print(len(r.shots), r.skipped)  # 241 0 になるはず

@@ -12,9 +12,9 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from core.config import CHART_KINDS, WINDOW_SIZES
-from core.metrics import METRICS
-from core.stats import COMPOSITE_LABELS, COMPOSITE_MODES
+from shottrend.core.config import CHART_KINDS, WINDOW_SIZES
+from shottrend.core.metrics import METRICS
+from shottrend.core.stats import COMPOSITE_LABELS, COMPOSITE_MODES
 
 from . import theme
 from .widgets import SegmentedControl

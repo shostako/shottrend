@@ -13,10 +13,10 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from core.metrics import DEFAULT_METRIC
-from core.metrics import metric as metric_of
-from core.models import Shot
-from core.stats import COMPOSITE_LABELS, composite
+from shottrend.core.metrics import DEFAULT_METRIC
+from shottrend.core.metrics import metric as metric_of
+from shottrend.core.models import Shot
+from shottrend.core.stats import COMPOSITE_LABELS, composite
 
 from . import theme
 

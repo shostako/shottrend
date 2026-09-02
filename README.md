@@ -1,8 +1,10 @@
-# shot-monitor
+# ShotTrend
 
-射出成形の金型内圧モニタリングシステム **Futaba MPS08B (Mold Marshalling System)** が出力するサマリ CSV を追従し、ショットごとの演算値（ピーク圧力・積分値・ピーク到達時間など）の履歴を**数値で読める形**でリアルタイム表示する常駐デスクトップアプリ。
+**1 ショット 1 行の CSV を追従して、ショットごとの値の推移を数値で見せる**常駐デスクトップアプリ。
 
-![shot-monitor の画面](docs/screenshot.png)
+射出成形の金型内圧モニタリングシステム **Futaba MPS08B (Mold Marshalling System)** が出力するサマリ CSV に対応。ショットごとの演算値（ピーク圧力・積分値・ピーク到達時間など）の履歴を、最新値・前ショットとの差・統計・グラフ・テーブルで**一目で読める形**にする。
+
+![ShotTrend の画面](docs/screenshot.png)
 
 - Windows 用の単体 exe を配布。現場 PC に **Python は要らない**
 - 依存は Python 標準ライブラリのみ（tkinter は Python 同梱）。ソースから動かす場合も追加インストール不要
@@ -18,15 +20,17 @@ MPS08B には純正のトレンドビューアがあり、ピーク値の折れ�
 
 ### 配布版（推奨）
 
-1. [Releases](https://github.com/shostako/shot-monitor/releases) から `shot-monitor-<version>-win64.zip` を落として展開する
-2. 展開したフォルダを好きな場所に置く（`C:\Tools\shot-monitor\` など）。**書き込みできる場所**にすること。設定ファイル `config.json` とログ `logs\` は exe の隣に作られる
-3. `shot-monitor.exe` を起動する
+1. [Releases](https://github.com/shostako/shottrend/releases) から `shottrend-<version>-win64.zip` を落として展開する
+2. 展開したフォルダを好きな場所に置く（`C:\Tools\shottrend\` など）。**書き込みできる場所**にすること。設定ファイル `config.json` とログ `logs\` は exe の隣に作られる
+3. `shottrend.exe` を起動する
 
 初回は Windows SmartScreen が「WindowsによってPCが保護されました」と出す（コード署名していないため）。「詳細情報」→「実行」で進める。2回目以降は出ない。
 
 起動しない・すぐ消えるときは `logs\app.log` を見る。exe はコンソールを持たないので、エラーはすべてここに出る。
 
-更新は zip を落とし直して `shot-monitor.exe` だけ上書きすればよい。`config.json` はそのまま使える。
+更新は Releases の `shottrend.exe` 単体を落として上書きすればよい（zip を展開し直す必要はない）。`config.json` はそのまま使える。
+
+**v0.2.0 以前（`shot-monitor.exe`）から上げる場合**: 同じフォルダに `shottrend.exe` を置いたら、古い `shot-monitor.exe` は削除し、デスクトップ等のショートカットは張り替える。2 本とも残すとどちらを起動しても同じ `config.json` と `logs\` を奪い合う。
 
 ### ソースから
 
@@ -141,22 +145,23 @@ MPS08B が書く日次サマリ CSV だけを読む。生波形（`ALL_*.csv`、
 ## 構成
 
 ```
-app.pyw            エントリポイント。ログ設定と例外の捕捉
-core/     ← Tk を一切 import しない層。pytest で全部検証できる
-  metrics.py    表示項目の一覧（表示名・単位・桁数の単一ソース）
-  models.py     Shot / Session
-  config.py     設定の読み書き（原子的書き込み）
-  discovery.py  mtime による最新セッション判定
-  csvsource.py  差分読み（最も壊れやすい場所）
-  history.py    shot_no キーの履歴（冪等性の要）
-  stats.py      統計・合成値
-  monitor.py    ポーリング 1 回分の判断
-  version.py    バージョン番号
-ui/       ← tkinter。core を呼ぶだけ
+app.pyw              エントリポイント。ログ設定と例外の捕捉
+shottrend/
+  core/     ← Tk を一切 import しない層。pytest で全部検証できる
+    metrics.py    表示項目の一覧（表示名・単位・桁数の単一ソース）
+    models.py     Shot / Session
+    config.py     設定の読み書き（原子的書き込み）
+    discovery.py  mtime による最新セッション判定
+    csvsource.py  差分読み（最も壊れやすい場所）
+    history.py    shot_no キーの履歴（冪等性の要）
+    stats.py      統計・合成値
+    monitor.py    ポーリング 1 回分の判断
+    version.py    バージョン番号
+  ui/       ← tkinter。core を呼ぶだけ
 tools/
   fake_writer.py  追記シミュレータ
   build.py        配布物の作成（Windows）
-shot-monitor.spec  PyInstaller の定義
+shottrend.spec       PyInstaller の定義
 ```
 
 ## 開発
@@ -173,7 +178,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[de
 
 CI（GitHub Actions）は master への push と PR で `ruff check` / `ruff format --check` / `pytest` を回す。PR を開くと Claude が自動でレビューを付ける（修正 push では再発火しないので、直したうえで見直してほしいときは PR に `@claude` とコメントする）。
 
-GUI の見た目はテストで検出できない。UI を触ったら必ず Windows で起動して画面を確認する。WSL 上のソースを Windows の Python から直接動かせる: `py -3.12 \\wsl.localhost\<distro>\home\<user>\ClaudeCode\shot-monitor\app.pyw`。
+GUI の見た目はテストで検出できない。UI を触ったら必ず Windows で起動して画面を確認する。WSL 上のソースを Windows の Python から直接動かせる: `py -3.12 \\wsl.localhost\<distro>\home\<user>\ClaudeCode\shottrend\app.pyw`。
 
 ## ビルドとリリース
 
@@ -184,18 +189,18 @@ py -3.12 -m pip install -e ".[dev,build]"
 py -3.12 tools\build.py
 ```
 
-`dist\shot-monitor.exe` と `dist\shot-monitor-<version>-win64.zip` ができる。
+`dist\shottrend.exe` と `dist\shottrend-<version>-win64.zip` ができる。
 
 リリースは **タグを push するだけ**。
 
 ```bash
-# 1. core/version.py の __version__ を上げ、CHANGELOG.md に節を切ってマージする
+# 1. shottrend/core/version.py の __version__ を上げ、CHANGELOG.md に節を切ってマージする
 # 2. タグを打つ
 git tag -a v0.2.0 -m "v0.2.0"
 git push origin v0.2.0
 ```
 
-GitHub Actions（`release.yml`）が Windows で lint・テスト・ビルドを通し、CHANGELOG の該当節を本文にして Release を作り、exe と zip を添付する。タグと `core/version.py` が食い違っていれば止まる。
+GitHub Actions（`release.yml`）が Windows で lint・テスト・ビルドを通し、CHANGELOG の該当節を本文にして Release を作り、exe と zip を添付する。タグと `shottrend/core/version.py` が食い違っていれば止まる。
 
 ## 既知の制限
 

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from core.history import ShotHistory, find_gaps
-from core.models import Shot
-from core.stats import composite, window_stats
+from shottrend.core.history import ShotHistory, find_gaps
+from shottrend.core.models import Shot
+from shottrend.core.stats import composite, window_stats
 
 
 def mk(no: int, ch01: float = 10.0, ch02: float = 20.0, *, peaks=None, **metrics) -> Shot:
