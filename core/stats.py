@@ -13,16 +13,25 @@ COMPOSITE_MODES = ("max", "min", "avg", "diff")
 COMPOSITE_LABELS = {"max": "最大", "min": "最小", "avg": "平均", "diff": "差"}
 
 
-def composite(shot: Shot, mode: str) -> float:
-    """1 ショット内の CH01 / CH02 から代表値を作る。"""
-    a, b = shot.ch01, shot.ch02
+def composite(shot: Shot, mode: str, channels: Sequence[int] | None = None) -> float:
+    """1 ショット内の使用中チャンネルから代表値を作る。
+
+    channels を渡さない場合は全チャンネルを対象にする。diff は最大と最小の
+    差（= レンジ）。2ch なら従来どおり 2 本の差と一致する。
+    """
+    if channels is None:
+        values = list(shot.peaks)
+    else:
+        values = [shot.peak(i) for i in channels]
+    if not values:
+        return 0.0
     if mode == "min":
-        return min(a, b)
+        return min(values)
     if mode == "avg":
-        return (a + b) / 2.0
+        return statistics.fmean(values)
     if mode == "diff":
-        return abs(a - b)
-    return max(a, b)
+        return max(values) - min(values)
+    return max(values)
 
 
 @dataclass(frozen=True, slots=True)

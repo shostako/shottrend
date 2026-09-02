@@ -191,3 +191,32 @@ def test_data_before_any_header_uses_fallback_colmap(summary_csv):
     r = SummaryCsvReader(p).read_new()
     assert [s.shot_no for s in r.shots] == [42]
     assert r.shots[0].ch01 == 12.5
+
+
+def test_reads_all_eight_channels(summary_csv):
+    """MPS08B はセンサが 2 本でも 8ch 分の列を書く。全部読めること。"""
+    p = summary_csv(
+        [
+            HEADER_LINE,
+            data_line(1, "2026/09/01 10:00:00", peaks=(50.0, 51.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+        ]
+    )
+    r = SummaryCsvReader(p).read_new()
+    assert len(r.shots[0].peaks) == 8
+    assert r.shots[0].peaks[:2] == (50.0, 51.0)
+    assert r.shots[0].ch01 == 50.0
+    assert r.shots[0].ch02 == 51.0
+
+
+def test_reads_channels_beyond_two(summary_csv):
+    """アンプを増やして 3ch 目以降が使われても読める。"""
+    p = summary_csv(
+        [
+            HEADER_LINE,
+            data_line(7, "2026/09/01 10:00:00", peaks=(10.0, 20.0, 30.0, 40.0, 0.0, 0.0, 0.0, 0.0)),
+        ]
+    )
+    r = SummaryCsvReader(p).read_new()
+    assert r.shots[0].peaks[:4] == (10.0, 20.0, 30.0, 40.0)
+    assert r.shots[0].peak(3) == 40.0
+    assert r.shots[0].peak(99) == 0.0  # 範囲外は 0.0

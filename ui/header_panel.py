@@ -1,7 +1,11 @@
-"""最新ショットの値と、表示中 N 件の統計を出すヘッダ。
+"""最新ショットの値と統計を出すヘッダ。
 
 このアプリの存在理由がここに集約されている。純正トレンドビューアは値を
-クリックしないと読めないので、常時大きく出す。
+クリックしないと読めないので、常時大きく出す。加えて「前ショットからどう
+動いたか」を ▲▼ で見せる（純正にはこれが無い）。
+
+使用中の ch 数でカードの形を変える。MPS08B は 32ch まで計測できるので、
+大きいカードを固定で並べる作りにすると破綻する。
 """
 
 from __future__ import annotations
@@ -10,95 +14,137 @@ import tkinter as tk
 from tkinter import ttk
 
 from core.models import Session, Shot
-from core.monitor import STATUS_ERROR, STATUS_IDLE, STATUS_NODATA, STATUS_NOROOT, STATUS_RUNNING
 from core.stats import ChannelStats
 
 from . import theme
+from .widgets import ChannelCard, CompactChannelCard, InfoCard
 
-_STATUS_TEXT = {
-    STATUS_RUNNING: ("● 監視中", theme.OK),
-    STATUS_IDLE: ("● 停止中", theme.WARN),
-    STATUS_NODATA: ("○ データなし", theme.DIM),
-    STATUS_NOROOT: ("● フォルダ未設定", theme.ERR),
-    STATUS_ERROR: ("● 読み取り異常", theme.ERR),
-}
+#: これを超える ch 数になったら小型カードに切り替える
+LARGE_CARD_LIMIT = 3
+#: 小型カードを 1 段に並べる枚数
+COMPACT_PER_ROW = 5
+#: スパークラインに使う直近ショット数
+SPARK_POINTS = 30
 
 
 class HeaderPanel(ttk.Frame):
     def __init__(self, parent: tk.Misc, on_session_change) -> None:
-        super().__init__(parent, style="Panel.TFrame", padding=(14, 10))
+        super().__init__(parent, style="TFrame", padding=(14, 10, 14, 4))
         self._on_session_change = on_session_change
         self._sessions: list[Session] = []
         self._suppress = False
+        self._channels: list[int] = []
+        self._cards: list[tk.Canvas] = []
 
-        top = ttk.Frame(self, style="Panel.TFrame")
-        top.pack(fill="x")
+        top = ttk.Frame(self, style="TFrame")
+        top.pack(fill="x", pady=(0, 8))
 
-        self.shot_label = ttk.Label(top, text="Shot ----", style="Panel.TLabel", font=theme.F_BIG)
+        self.shot_label = ttk.Label(top, text="Shot ----", font=theme.F_BIG)
         self.shot_label.pack(side="left")
 
-        self.time_label = ttk.Label(top, text="", style="Muted.TLabel")
+        self.time_label = ttk.Label(top, text="", style="MutedBg.TLabel")
         self.time_label.pack(side="left", padx=(12, 0))
 
-        self.session_box = ttk.Combobox(top, state="readonly", width=30, font=theme.F_SMALL)
+        self.session_box = ttk.Combobox(top, state="readonly", width=28, font=theme.F_SMALL)
         self.session_box.pack(side="right")
         self.session_box.bind("<<ComboboxSelected>>", self._session_selected)
+        ttk.Label(top, text="表示中のデータ", style="MutedBg.TLabel").pack(
+            side="right", padx=(0, 8)
+        )
 
-        self.status_label = ttk.Label(top, text="", style="Panel.TLabel", font=theme.F_SMALL)
-        self.status_label.pack(side="right", padx=(0, 14))
+        row = ttk.Frame(self, style="TFrame")
+        row.pack(fill="x")
+        self._card_area = ttk.Frame(row, style="TFrame")
+        self._card_area.pack(side="left")
+        self.info = InfoCard(row, "ショット情報")
+        self.info.pack(side="left", padx=(10, 0))
 
-        values = ttk.Frame(self, style="Panel.TFrame")
-        values.pack(fill="x", pady=(8, 0))
-        self._ch_value: list[ttk.Label] = []
-        self._ch_stats: list[ttk.Label] = []
-        for name, color in zip(theme.CH_NAMES, theme.CH_COLORS, strict=True):
-            col = ttk.Frame(values, style="Panel.TFrame")
-            col.pack(side="left", padx=(0, 40))
-            ttk.Label(col, text=f"{name}  [MPa]", style="Panel.TLabel", foreground=color).pack(
-                anchor="w"
-            )
-            v = ttk.Label(
-                col, text="--.-", style="Panel.TLabel", font=theme.F_HUGE, foreground=color
-            )
-            v.pack(anchor="w")
-            s = ttk.Label(col, text="", style="Stat.TLabel")
-            s.pack(anchor="w")
-            self._ch_value.append(v)
-            self._ch_stats.append(s)
+    # ---------------------------------------------------------------- channels
 
-        self.window_label = ttk.Label(self, text="", style="Muted.TLabel")
-        self.window_label.pack(anchor="w", pady=(4, 0))
+    def _rebuild_cards(self, channels: list[int]) -> None:
+        """ch の顔ぶれが変わったときだけカードを作り直す。"""
+        for card in self._cards:
+            card.destroy()
+        self._cards = []
+        self._channels = list(channels)
+
+        compact = len(channels) > LARGE_CARD_LIMIT
+        for pos, ch in enumerate(channels):
+            name = theme.ch_name(ch)
+            color = theme.ch_color(ch)
+            text_color = theme.ch_text_color(ch)
+            if compact:
+                card = CompactChannelCard(self._card_area, name, color, text_color)
+                card.grid(
+                    row=pos // COMPACT_PER_ROW,
+                    column=pos % COMPACT_PER_ROW,
+                    padx=(0, 8),
+                    pady=(0, 6),
+                )
+            else:
+                card = ChannelCard(self._card_area, name, color, text_color)
+                card.grid(row=0, column=pos, padx=(0, 10))
+            self._cards.append(card)
 
     # ------------------------------------------------------------------ update
 
-    def set_latest(self, shot: Shot | None) -> None:
-        if shot is None:
+    def set_data(
+        self,
+        shots: list[Shot],
+        channels: list[int],
+        stats: list[ChannelStats],
+        window_size: int,
+        total: int,
+    ) -> None:
+        """表示中のショット列から、ヘッダの全要素を作り直す。"""
+        if channels != self._channels:
+            self._rebuild_cards(channels)
+
+        latest = shots[-1] if shots else None
+        prev = shots[-2] if len(shots) >= 2 else None
+
+        if latest is None:
             self.shot_label.config(text="Shot ----")
             self.time_label.config(text="")
-            for label in self._ch_value:
-                label.config(text="--.-")
+            for card in self._cards:
+                card.set_data(None, None, [], None)
+            self.info.set_rows([])
             return
-        self.shot_label.config(text=f"Shot {shot.shot_no}")
-        self.time_label.config(text=shot.dt.strftime("%Y/%m/%d %H:%M:%S"))
-        self._ch_value[0].config(text=f"{shot.ch01:.1f}")
-        self._ch_value[1].config(text=f"{shot.ch02:.1f}")
 
-    def set_stats(self, window_size: int, stats: list[ChannelStats]) -> None:
-        shown = stats[0].n if stats else 0
-        self.window_label.config(text=f"直近 {window_size} 件指定 / 表示 {shown} 件")
-        for label, st in zip(self._ch_stats, stats, strict=True):
-            if st.empty:
-                label.config(text="")
-            else:
-                label.config(
-                    text=f"max {st.max:.2f}  min {st.min:.2f}  avg {st.avg:.2f}  σ {st.sd:.2f}"
-                )
+        self.shot_label.config(text=f"Shot {latest.shot_no}")
+        self.time_label.config(text=latest.dt.strftime("%Y/%m/%d  %H:%M:%S"))
 
-    def set_status(self, status: str, message: str) -> None:
-        text, color = _STATUS_TEXT.get(status, ("", theme.MUTED))
-        if message:
-            text = f"{text}  {message}"
-        self.status_label.config(text=text, foreground=color)
+        recent = shots[-SPARK_POINTS:]
+        for pos, ch in enumerate(channels):
+            value = latest.peak(ch)
+            delta = None if prev is None else value - prev.peak(ch)
+            series = [s.peak(ch) for s in recent]
+            self._cards[pos].set_data(value, delta, series, stats[pos])
+
+        self.info.set_rows(self._info_rows(latest, channels, window_size, len(shots), total))
+
+    def _info_rows(
+        self, latest: Shot, channels: list[int], window_size: int, shown: int, total: int
+    ) -> list[tuple[str, str, str]]:
+        rows: list[tuple[str, str, str]] = []
+        if len(channels) >= 2:
+            values = [latest.peak(c) for c in channels]
+            spread = max(values) - min(values)
+            label = (
+                f"{theme.ch_name(channels[0])} − {theme.ch_name(channels[1])}"
+                if len(channels) == 2
+                else "ch 間のばらつき"
+            )
+            value = (
+                f"{latest.peak(channels[0]) - latest.peak(channels[1]):+.2f} MPa"
+                if len(channels) == 2
+                else f"{spread:.2f} MPa"
+            )
+            rows.append((label, value, theme.FG))
+        rows.append(("サイクル", f"{latest.interval:.2f} s", theme.MUTED))
+        rows.append(("表示", f"{shown} / {total} 件", theme.MUTED))
+        rows.append(("使用 ch", f"{len(channels)} 本", theme.DIM))
+        return rows
 
     # ---------------------------------------------------------------- sessions
 

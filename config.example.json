@@ -5,5 +5,5 @@
   "window_size": 50,
   "chart_kind": "line",
   "composite_mode": "max",
-  "geometry": "1180x760"
+  "geometry": "1280x880+30+16"
 }

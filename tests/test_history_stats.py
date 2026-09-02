@@ -7,8 +7,9 @@ from core.models import Shot
 from core.stats import composite, window_stats
 
 
-def mk(no: int, ch01: float = 10.0, ch02: float = 20.0) -> Shot:
-    return Shot(no, datetime(2026, 9, 1, 10, 0, 0), 21.9, ch01, ch02)
+def mk(no: int, ch01: float = 10.0, ch02: float = 20.0, *, peaks=None) -> Shot:
+    values = peaks if peaks is not None else (ch01, ch02)
+    return Shot(no, datetime(2026, 9, 1, 10, 0, 0), 21.9, tuple(values))
 
 
 def test_duplicate_shot_no_is_ignored():
@@ -59,6 +60,41 @@ def test_composite_modes():
     assert composite(s, "avg") == (62.74 + 61.90) / 2
     assert round(composite(s, "diff"), 2) == 0.84
     assert composite(s, "unknown") == 62.74  # 未知のモードは max にフォールバック
+
+
+def test_composite_with_many_channels():
+    """ch が増えても max/min/avg/diff が意味を保つ。"""
+    s = mk(1, peaks=(10.0, 20.0, 30.0, 40.0))
+    assert composite(s, "max") == 40.0
+    assert composite(s, "min") == 10.0
+    assert composite(s, "avg") == 25.0
+    assert composite(s, "diff") == 30.0  # レンジ
+    # 対象 ch を絞れる
+    assert composite(s, "max", [0, 1]) == 20.0
+    assert composite(s, "diff", [1, 2]) == 10.0
+
+
+def test_used_channels_detects_connected_sensors():
+    """未接続 ch は 0.00 で書かれ続けるので、値で判別する。"""
+    h = ShotHistory()
+    h.add_many(
+        [
+            mk(1, peaks=(50.0, 51.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+            mk(2, peaks=(52.0, 53.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+        ]
+    )
+    assert h.channel_count() == 8
+    assert h.used_channels() == [0, 1]
+
+    # 3 本目が途中から値を持ち始めたら拾う
+    h.add_many([mk(3, peaks=(52.0, 53.0, 12.0, 0.0, 0.0, 0.0, 0.0, 0.0))])
+    assert h.used_channels() == [0, 1, 2]
+
+
+def test_used_channels_when_all_zero():
+    h = ShotHistory()
+    h.add_many([mk(1, peaks=(0.0, 0.0, 0.0, 0.0))])
+    assert h.used_channels() == [0, 1]  # 判断できないときは先頭 2ch を仮に出す
 
 
 def test_window_stats():

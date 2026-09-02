@@ -48,7 +48,8 @@ class AppConfig:
     window_size: int = 50
     chart_kind: str = "line"
     composite_mode: str = "max"
-    geometry: str = "1180x760"
+    show_delta_columns: bool = False
+    geometry: str = "1280x880+30+16"
 
     def normalized(self) -> AppConfig:
         """不正な値を既定値に丸める。手で編集された config でも落ちないように。"""
@@ -60,6 +61,7 @@ class AppConfig:
             self.composite_mode = "max"
         self.poll_interval_ms = max(250, min(int(self.poll_interval_ms), 60_000))
         self.session_rescan_ticks = max(1, min(int(self.session_rescan_ticks), 600))
+        self.show_delta_columns = bool(self.show_delta_columns)
         return self
 
 

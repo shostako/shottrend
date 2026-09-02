@@ -3,6 +3,9 @@
 横軸は等間隔のカテゴリ軸。ショット番号は目盛ラベルにのみ出す。
 理由 (罠2): ショット番号は中断で飛ぶ。実数軸にすると 1087 と 1109 の間に
 巨大な空白ができて、直近 10 件を見たいのに 1 点しか見えない事故になる。
+
+描画するチャンネルは呼び出し側が渡す（使用中の ch だけ）。MPS08B は 32ch まで
+計測できるため、2ch 決め打ちにしない。
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from . import theme
 
 PAD_LEFT = 58
 PAD_RIGHT = 26
-PAD_TOP = 18
+PAD_TOP = 26
 PAD_BOTTOM = 34
 
 RESIZE_DEBOUNCE_MS = 120
@@ -29,6 +32,9 @@ LABEL_MIN_SEP = 15
 GAP_LABEL_MIN_DX = 46
 GAP_LABEL_ROWS = 3
 GAP_LABEL_ROW_H = 13
+
+#: これを超える ch 数では最新値ラベルを出さない（重なって読めなくなる）
+LABEL_MAX_CHANNELS = 4
 
 
 def _nice_step(span: float, target_lines: int = 5) -> float:
@@ -43,6 +49,17 @@ def _nice_step(span: float, target_lines: int = 5) -> float:
     return 10.0 * mag
 
 
+def _spread_labels(ys: list[float], min_sep: float) -> list[float]:
+    """近すぎるラベルを縦に押し広げる。上下の順序は保つ。"""
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    out = list(ys)
+    for k in range(1, len(order)):
+        prev, cur = order[k - 1], order[k]
+        if out[cur] - out[prev] < min_sep:
+            out[cur] = out[prev] + min_sep
+    return out
+
+
 class ShotChart(tk.Canvas):
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(
@@ -52,14 +69,16 @@ class ShotChart(tk.Canvas):
             bd=0,
         )
         self._shots: list[Shot] = []
+        self._channels: list[int] = []
         self._kind = "line"
         self._resize_job: str | None = None
         self.bind("<Configure>", self._on_configure)
 
     # ------------------------------------------------------------------ public
 
-    def set_data(self, shots: list[Shot], kind: str) -> None:
+    def set_data(self, shots: list[Shot], channels: list[int], kind: str) -> None:
         self._shots = shots
+        self._channels = channels
         self._kind = kind if kind in ("line", "bar") else "line"
         self.redraw()
 
@@ -87,8 +106,11 @@ class ShotChart(tk.Canvas):
             max(PAD_TOP + 10, h - PAD_BOTTOM),
         )
 
+    def _values(self) -> list[float]:
+        return [s.peak(c) for s in self._shots for c in self._channels]
+
     def _y_domain(self) -> tuple[float, float]:
-        values = [v for s in self._shots for v in (s.ch01, s.ch02)]
+        values = self._values()
         if not values:
             return 0.0, 1.0
         lo, hi = min(values), max(values)
@@ -108,12 +130,12 @@ class ShotChart(tk.Canvas):
         left, top, right, bottom = self._plot_box()
         n = len(self._shots)
 
-        if n == 0:
+        if n == 0 or not self._channels:
             self.create_text(
                 (left + right) // 2,
                 (top + bottom) // 2,
                 text="データなし",
-                fill=theme.DIM,
+                fill=theme.ON_PLOT_DIM,
                 font=theme.F_LABEL,
             )
             return
@@ -132,12 +154,12 @@ class ShotChart(tk.Canvas):
 
         gaps = set(find_gaps(self._shots))
         if self._kind == "bar":
-            self._draw_bars(x_at, y_at, y_min, slot_w, bottom)
+            self._draw_bars(x_at, y_at, y_min, slot_w)
         else:
             self._draw_lines(x_at, y_at, gaps)
         self._draw_gap_marks(gaps, x_at, slot_w, top, bottom)
         self._draw_x_labels(x_at, bottom, n)
-        self._draw_latest(x_at, y_at, n, right, top)
+        self._draw_latest(x_at, y_at, n, right)
 
     # ------------------------------------------------------------------ pieces
 
@@ -152,33 +174,32 @@ class ShotChart(tk.Canvas):
                 y,
                 text=f"{v:g}",
                 anchor="e",
-                fill=theme.MUTED,
+                fill=theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
             )
             v += step
         self.create_line(left, top, left, bottom, fill=theme.AXIS)
         self.create_line(left, bottom, right, bottom, fill=theme.AXIS)
         self.create_text(
-            left - 8, top - 8, text="MPa", anchor="e", fill=theme.MUTED, font=theme.F_SMALL
+            left - 8, top - 14, text="MPa", anchor="e", fill=theme.ON_PLOT_DIM, font=theme.F_SMALL
         )
 
     def _draw_lines(self, x_at, y_at, gaps: set[int]) -> None:
         n = len(self._shots)
         radius = 3 if n <= 50 else 2
-        for ch_index, color in enumerate(theme.CH_COLORS):
+        for ch in self._channels:
+            color = theme.ch_color(ch)
             # 中断をまたいで線を繋がない。繋ぐと連続した変化に見えてしまう。
             segment: list[float] = []
             for i, shot in enumerate(self._shots):
                 if i in gaps and segment:
                     self._flush_segment(segment, color)
                     segment = []
-                value = shot.ch01 if ch_index == 0 else shot.ch02
-                segment.extend((x_at(i), y_at(value)))
+                segment.extend((x_at(i), y_at(shot.peak(ch))))
             self._flush_segment(segment, color)
 
             for i, shot in enumerate(self._shots):
-                value = shot.ch01 if ch_index == 0 else shot.ch02
-                x, y = x_at(i), y_at(value)
+                x, y = x_at(i), y_at(shot.peak(ch))
                 self.create_oval(
                     x - radius, y - radius, x + radius, y + radius, fill=color, outline=""
                 )
@@ -186,25 +207,24 @@ class ShotChart(tk.Canvas):
     def _flush_segment(self, coords: list[float], color: str) -> None:
         if len(coords) >= 4:
             self.create_line(*coords, fill=color, width=2, smooth=False)
-        elif len(coords) == 2:
-            # 1 点だけの区間。マーカーだけ後で打たれるので線は引かない。
-            pass
 
-    def _draw_bars(self, x_at, y_at, y_min, slot_w, bottom) -> None:
-        bar_w = max(2.0, slot_w * 0.30)
-        gap = slot_w * 0.06
+    def _draw_bars(self, x_at, y_at, y_min, slot_w) -> None:
+        m = len(self._channels)
+        usable = slot_w * 0.72
+        bar_w = max(1.5, usable / m)
         base_y = y_at(max(y_min, 0.0))
         for i, shot in enumerate(self._shots):
-            cx = x_at(i)
-            for ch_index, color in enumerate(theme.CH_COLORS):
-                value = shot.ch01 if ch_index == 0 else shot.ch02
-                if ch_index == 0:
-                    x0 = cx - gap / 2 - bar_w
-                    x1 = cx - gap / 2
-                else:
-                    x0 = cx + gap / 2
-                    x1 = cx + gap / 2 + bar_w
-                self.create_rectangle(x0, y_at(value), x1, base_y, fill=color, outline="")
+            x0_group = x_at(i) - usable / 2
+            for k, ch in enumerate(self._channels):
+                x0 = x0_group + bar_w * k
+                self.create_rectangle(
+                    x0,
+                    y_at(shot.peak(ch)),
+                    x0 + bar_w * 0.86,
+                    base_y,
+                    fill=theme.ch_color(ch),
+                    outline="",
+                )
 
     def _draw_gap_marks(self, gaps: set[int], x_at, slot_w, top, bottom) -> None:
         """中断箇所に破線を引き、欠けたショット数を添える。
@@ -227,7 +247,7 @@ class ShotChart(tk.Canvas):
                 top + 2 + row * GAP_LABEL_ROW_H,
                 text=f"{missing}欠",
                 anchor="nw",
-                fill=theme.DIM,
+                fill=theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
             )
             last_label_x = x
@@ -243,7 +263,7 @@ class ShotChart(tk.Canvas):
                 bottom + 6,
                 text=str(shot.shot_no),
                 anchor="n",
-                fill=theme.FG if is_last else theme.MUTED,
+                fill=theme.ON_PLOT if is_last else theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,
             )
         self.create_text(
@@ -251,43 +271,38 @@ class ShotChart(tk.Canvas):
             bottom + 20,
             text="shot",
             anchor="n",
-            fill=theme.DIM,
+            fill=theme.ON_PLOT_DIM,
             font=theme.F_SMALL,
         )
 
-    def _draw_latest(self, x_at, y_at, n: int, right: int, top: int) -> None:
+    def _draw_latest(self, x_at, y_at, n: int, right: int) -> None:
         """最新ショットを強調し、数値を併記する。
 
         純正トレンドビューアの最大の欠点が「グラフに数値が出ない」ことなので、
-        ここは意地でも出す。
+        ここは意地でも出す。ただし ch が多いとラベルだけで埋まるため、
+        本数が増えたらマーカーの強調だけに留める。
         """
         last = self._shots[-1]
         x = x_at(n - 1)
-        values = (last.ch01, last.ch02)
-        ys = [y_at(v) for v in values]
+        ys = [y_at(last.peak(ch)) for ch in self._channels]
 
-        # CH01 と CH02 が近い値だとラベルが重なって読めなくなる。
-        # 近すぎる場合だけ上下へ振り分ける（値の大小関係は保つ）。
-        label_ys = list(ys)
-        if abs(ys[0] - ys[1]) < LABEL_MIN_SEP:
-            mid = (ys[0] + ys[1]) / 2
-            half = LABEL_MIN_SEP / 2
-            if ys[0] <= ys[1]:
-                label_ys = [mid - half, mid + half]
-            else:
-                label_ys = [mid + half, mid - half]
+        for ch, y in zip(self._channels, ys, strict=True):
+            self.create_oval(
+                x - 5, y - 5, x + 5, y + 5, fill=theme.ch_color(ch), outline="#FFFFFF", width=1
+            )
 
+        if len(self._channels) > LABEL_MAX_CHANNELS:
+            return
+
+        label_ys = _spread_labels(ys, LABEL_MIN_SEP)
         # 右端にはみ出すなら左側へ回す（最新点は必ず右端付近に来る）
         anchor, dx = ("e", -11) if x + 56 > right else ("w", 11)
-
-        for ch_index, color in enumerate(theme.CH_COLORS):
-            y = ys[ch_index]
-            self.create_oval(x - 5, y - 5, x + 5, y + 5, fill=color, outline="#FFFFFF", width=1)
+        for ch, ly in zip(self._channels, label_ys, strict=True):
             self.create_text(
                 x + dx,
-                label_ys[ch_index],
-                text=f"{values[ch_index]:.2f}",
+                ly,
+                text=f"{last.peak(ch):.2f}",
                 anchor=anchor,
-                fill=color,
+                fill=theme.ch_color(ch),
                 font=theme.F_STAT,
             )
