@@ -275,3 +275,38 @@ def test_unparsable_optional_metric_does_not_drop_the_row(summary_csv):
     assert r.skipped == 0
     assert r.shots[0].peak(0) == 60.0
     assert r.shots[0].value("peak_time", 0) == 0.0
+
+
+#: PPSB v1.3.0.5 の実機が書くヘッダ行そのもの（成形条件は含まないので置いてよい）。
+#: conftest の合成ヘッダとは独立したオラクル。2026-02-16〜09-02 の全 36 ファイルで
+#: このヘッダ 1 種類しか観測されていない
+REAL_HEADER_1_3_0_5 = "DateTime,interval,Shot,Result,Error,MT_State,MD,CH01_error,CH02_error,CH03_error,CH04_error,CH05_error,CH06_error,CH07_error,CH08_error,CH01_integral,CH02_integral,CH03_integral,CH04_integral,CH05_integral,CH06_integral,CH07_integral,CH08_integral,CH01_peak,CH02_peak,CH03_peak,CH04_peak,CH05_peak,CH06_peak,CH07_peak,CH08_peak,CH01_peak_integral,CH02_peak_integral,CH03_peak_integral,CH04_peak_integral,CH05_peak_integral,CH06_peak_integral,CH07_peak_integral,CH08_peak_integral,CH01_peak_time,CH02_peak_time,CH03_peak_time,CH04_peak_time,CH05_peak_time,CH06_peak_time,CH07_peak_time,CH08_peak_time,CH01_section_average,CH02_section_average,CH03_section_average,CH04_section_average,CH05_section_average,CH06_section_average,CH07_section_average,CH08_section_average,CH01_section_integral_1,CH02_section_integral_1,CH03_section_integral_1,CH04_section_integral_1,CH05_section_integral_1,CH06_section_integral_1,CH07_section_integral_1,CH08_section_integral_1,CH01_section_integral_2,CH02_section_integral_2,CH03_section_integral_2,CH04_section_integral_2,CH05_section_integral_2,CH06_section_integral_2,CH07_section_integral_2,CH08_section_integral_2,CH01_pointMonitor,CH02_pointMonitor,CH03_pointMonitor,CH04_pointMonitor,CH05_pointMonitor,CH06_pointMonitor,CH07_pointMonitor,CH08_pointMonitor,CH01_eject_Monitor,CH02_eject_Monitor,CH03_eject_Monitor,CH04_eject_Monitor,CH05_eject_Monitor,CH06_eject_Monitor,CH07_eject_Monitor,CH08_eject_Monitor,CH01_RisingTime,CH02_RisingTime,CH03_RisingTime,CH04_RisingTime,CH05_RisingTime,CH06_RisingTime,CH07_RisingTime,CH08_RisingTime,CH01_FallingTime,CH02_FallingTime,CH03_FallingTime,CH04_FallingTime,CH05_FallingTime,CH06_FallingTime,CH07_FallingTime,CH08_FallingTime,"
+
+
+def test_fallback_colmap_matches_real_header():
+    """ヘッダ無しフォールバックの列位置が、実機のヘッダから引いた位置と一致する。
+
+    フォールバックは列位置の決め打ちなので、並びが違ってもエラーにならず
+    それらしい間違った値を返す。実機ヘッダ（conftest とは別の写し）と突き合わせる。
+    """
+    from core.csvsource import _FALLBACK_COLMAP, _build_colmap
+
+    fields = REAL_HEADER_1_3_0_5.split(",")
+    assert len(fields) == 104
+    cm = _build_colmap(fields)
+    assert cm is not None
+    assert cm.base == _FALLBACK_COLMAP.base
+    assert cm.metrics == _FALLBACK_COLMAP.metrics
+    assert set(cm.metrics) == {
+        "peak",
+        "integral",
+        "peak_integral",
+        "peak_time",
+        "section_average",
+        "section_integral_1",
+        "section_integral_2",
+        "pointMonitor",
+        "eject_Monitor",
+        "RisingTime",
+        "FallingTime",
+    }
