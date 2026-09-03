@@ -197,10 +197,46 @@ def test_hint_is_assembled_from_menu_labels():
     """
     hint = i18n.t(
         "msg.hint_choose_dir",
-        menu=i18n.t("menu.file"),
-        item=i18n.t("menu.choose_dir"),
+        menu=i18n.Ref("menu.file"),
+        item=i18n.Ref("menu.choose_dir"),
     )
     assert hint == "ファイル > MMS_DATA フォルダを選ぶ"
+
+
+def test_reference_parameters_are_resolved_at_format_time():
+    """`Ref` のパラメータは、渡した時点ではなく整形の時点の言語で引かれる。
+
+    状態帯の案内文はパラメータごと `_last_msg_params` に残り、言語を
+    切り替えたあとの描き直しでも同じものが使われる。訳文を先に焼き込むと
+    英語の画面に日本語の案内が次のポーリング（最大 60 秒）まで居座る。
+    """
+    params = {"menu": i18n.Ref("menu.file"), "item": i18n.Ref("menu.choose_dir")}
+    assert i18n.t("msg.hint_choose_dir", **params) == "ファイル > MMS_DATA フォルダを選ぶ"
+
+    i18n.set_language("en")
+    # 同じ params をそのまま使い回す（アプリと同じ持ち方）
+    assert i18n.t("msg.hint_choose_dir", **params) == "File > Choose MMS_DATA folder"
+
+
+def test_status_hint_parameters_are_not_translated_in_advance():
+    """アプリ側が `Ref` を渡している（`t()` の戻り値を渡していない）。
+
+    `_tick_once()` で訳してしまうと上のテストが守っている性質が意味を失う。
+    ここは呼び出し側の書き方の問題なので、ソースで縛る。
+    """
+    from shottrend.ui import app as app_module
+
+    tick = _function(app_module, "_tick_once")
+    refs = {
+        node.args[0].value
+        for node in ast.walk(tick)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "Ref"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+    }
+    assert refs == {"menu.file", "menu.choose_dir"}
 
 
 def test_about_lines_keep_their_values():

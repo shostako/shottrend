@@ -26,9 +26,9 @@ from shottrend.core.monitor import (
 )
 from shottrend.core.stats import window_stats
 from shottrend.core.version import __version__
+from shottrend.i18n import Ref, detect_language, endonym, set_language, t
 from shottrend.i18n import available as available_languages
 from shottrend.i18n import current as current_language
-from shottrend.i18n import detect_language, endonym, set_language, t
 
 from . import theme
 from .chart import ShotChart
@@ -254,11 +254,16 @@ class MonitorApp:
     def _tick_once(self, *, rescan: bool) -> None:
         if not self._data_root_valid():
             # 案内文はメニューの訳語から組み立てる。固定文にするとメニューだけ
-            # 訳を直したときに案内が古いまま取り残される
+            # 訳を直したときに案内が古いまま取り残される。
+            #
+            # ここで t() を呼んで訳文を渡さないこと。この params は
+            # `_last_msg_params` に残り、言語を切り替えたあとの描き直しでも
+            # 使われる。訳文を焼き込むと、英語の画面に日本語の案内が次の
+            # ポーリングまで居座る
             self._set_status(
                 STATUS_NOROOT,
                 "msg.hint_choose_dir",
-                {"menu": t("menu.file"), "item": t("menu.choose_dir")},
+                {"menu": Ref("menu.file"), "item": Ref("menu.choose_dir")},
             )
             return
         result = self.service.poll(now=datetime.now(), rescan=rescan)
