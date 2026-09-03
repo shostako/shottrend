@@ -93,8 +93,10 @@ class HeaderPanel(ttk.Frame):
         specs = [
             (theme.ch_name(ch), theme.ch_color(ch), theme.ch_text_color(ch)) for ch in channels
         ]
-        # 合成値のカード。ch の色と混ざらないよう本体のアクセント色を使う
-        specs.append((f"合成値 {COMPOSITE_LABELS.get(composite_mode, '')}", theme.ACCENT, theme.FG))
+        # 合成値のカード。ch の色と混ざらないよう本体のアクセント色を使う。
+        # 見出しは種類だけ（「最大」等）。何の値かはコントロールバーの「合成値」
+        # グループが示しているので、カード側で繰り返すと幅を食うだけになる
+        specs.append((COMPOSITE_LABELS.get(composite_mode, ""), theme.ACCENT, theme.FG))
 
         for pos, (name, color, text_color) in enumerate(specs):
             if self._compact:
