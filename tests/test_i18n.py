@@ -208,6 +208,78 @@ def test_about_lines_keep_their_values():
     assert i18n.t("about.data", path=i18n.t("about.unset")) == "データ: (未設定)"
 
 
+# ------------------------------------------------------------------ フォント
+
+
+@pytest.mark.parametrize(
+    ("lang", "families", "expected"),
+    [
+        ("ko", {"Malgun Gothic", "Segoe UI"}, "Malgun Gothic"),
+        ("ko", {"Gulim"}, "Gulim"),  # 第 1 候補が無ければ次へ
+        ("zh-Hant", {"PMingLiU", "Yu Gothic UI"}, "PMingLiU"),
+        ("zh-Hans", {"Microsoft YaHei UI"}, "Microsoft YaHei UI"),
+        ("en", {"Segoe UI"}, "Segoe UI"),
+        # その言語の候補が全滅したら日本語用へ。豆腐を並べるよりまし
+        ("ko", {"Yu Gothic UI"}, "Yu Gothic UI"),
+    ],
+)
+def test_resolve_ui_font(lang, families, expected):
+    from shottrend.ui import theme
+
+    assert theme.resolve_ui_font(lang, families) == expected
+
+
+def test_resolve_ui_font_never_raises_on_empty_family_list():
+    """フォントが 1 つも見つからなくても名前を返す（Tk が既定に倒す）。"""
+    from shottrend.ui import theme
+
+    assert theme.resolve_ui_font("ko", set())
+    assert theme.resolve_ui_font("xx", set())
+
+
+def test_set_language_font_leaves_monospace_alone():
+    """数値用の等幅は言語で変えない。桁が揃うことだけが要件。"""
+    from shottrend.ui import theme
+
+    before = (theme.F_HUGE, theme.F_STAT, theme.F_TABLE)
+    try:
+        theme.set_language_font("ko", {"Malgun Gothic"})
+        assert theme.F_LABEL[0] == "Malgun Gothic"
+        assert (theme.F_HUGE, theme.F_STAT, theme.F_TABLE) == before
+    finally:
+        theme.set_language_font("ja", {"Yu Gothic UI"})
+
+
+def test_app_resolves_the_font_before_styling():
+    """起動経路が `set_language_font()` を呼ぶ。
+
+    これを呼び忘れると `resolve_ui_font()` とフォールバック候補が丸ごと死に、
+    `Yu Gothic UI` の無い環境で代替が選ばれない。しかもウィジェットの幅を
+    「実際には使われないフォント」で測ることになる。テストは通るのに機能だけ
+    死ぬので、呼び出しの実在をここで縛る。
+
+    呼ぶ順序（スタイルを組む前）は目で見るしかないが、まず呼ばれていることを
+    保証する。
+    """
+    from shottrend.ui import app as app_module
+
+    tree = ast.parse(Path(app_module.__file__).read_text(encoding="utf-8"))
+    called = {
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "set_language_font" in called
+    assert "apply_ttk_theme" in called
+
+
+def test_every_language_has_font_candidates():
+    """言語を足したらフォント候補も足す。片方だけ増えると豆腐になる。"""
+    from shottrend.ui import theme
+
+    assert set(theme.UI_FONT_CANDIDATES) == set(LANGUAGES)
+
+
 # ------------------------------------------------------------- ロケール検出
 
 

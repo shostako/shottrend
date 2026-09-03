@@ -25,6 +25,10 @@ from . import theme
 PAD_KEY = "pad"
 PAD_WIDTH = 16
 
+#: 見出しの実測幅に足す左右の余白。Treeview の heading は文字を詰めて描くので、
+#: これが無いと訳語が枠にぴったり張り付いて読みづらい。
+HEADING_PAD = 14
+
 #: 表示する行数。ウィンドウが画面からはみ出さないよう固定する。
 VISIBLE_ROWS = 8
 
@@ -129,6 +133,11 @@ class ShotTable(ttk.Frame):
         self.tree.configure(columns=keys, displaycolumns=keys)
         for key, title, width, anchor in spec:
             self.tree.heading(key, text=title, anchor=anchor)
+            # spec の幅は「数値の桁が収まる」ための下限。見出しのほうが長い
+            # 言語では見出しに合わせて広げる（訳語が切れて読めなくなるより、
+            # 表が少し横に伸びるほうがまし）
+            if title:
+                width = max(width, theme.text_px([title], theme.F_SMALL, HEADING_PAD))
             # 伸びるのは余白列だけ。数値列は固定幅で左に詰める
             self.tree.column(
                 key, width=width, minwidth=width, anchor=anchor, stretch=key == PAD_KEY

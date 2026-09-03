@@ -45,6 +45,12 @@ def round_rect(canvas: tk.Canvas, x1, y1, x2, y2, r, **kw):
     return canvas.create_polygon(pts, smooth=True, **kw)
 
 
+#: セグメント 1 つの幅。実測したラベル幅に左右の余白を足し、下限で押さえる。
+#: 下限があるのは、"10" のような短いラベルでもボタンとして掴める大きさが要るため。
+SEG_PAD = 22
+SEG_MIN_WIDTH = 44
+
+
 class SegmentedControl(tk.Canvas):
     """1 つだけ選べる横並びのボタン列。
 
@@ -59,10 +65,17 @@ class SegmentedControl(tk.Canvas):
         initial: object,
         on_change: Callable[[object], None],
         *,
-        seg_width: int = 54,
+        seg_width: int | None = None,
         height: int = 28,
         bg: str = theme.BG,
     ) -> None:
+        # 幅を指定されなければラベルを実測して決める。言語ごとに定数表を持つと
+        # 訳語を足すたびに直す羽目になるし、必ずどこかで合わなくなる
+        if seg_width is None:
+            seg_width = max(
+                SEG_MIN_WIDTH,
+                theme.text_px([label for _, label in options], theme.F_LABEL, SEG_PAD),
+            )
         # 属性の代入は必ず super().__init__() の後に行う。
         # tkinter.Misc は内部で self._options(cnf) を呼ぶため、その名前を
         # 先に潰すと 'list' object is not callable で初期化が死ぬ。

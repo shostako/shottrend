@@ -10,6 +10,7 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+from tkinter import font as tkfont
 
 from shottrend.core.config import AppConfig, config_path, load_config, save_config
 from shottrend.core.discovery import DataRootScanner
@@ -25,6 +26,7 @@ from shottrend.core.monitor import (
 )
 from shottrend.core.stats import window_stats
 from shottrend.core.version import __version__
+from shottrend.i18n import current as current_language
 from shottrend.i18n import detect_language, set_language, t
 
 from . import theme
@@ -68,8 +70,13 @@ class MonitorApp:
         root.geometry(self.cfg.geometry)
         root.minsize(1000, 700)
 
-        style = ttk.Style(root)
-        theme.apply_ttk_theme(style)
+        # 言語を切り替えるとフォントが変わり、ttk のスタイルを作り直す必要が
+        # あるので参照を持っておく（ttk はスタイル生成時にフォントを取り込む）
+        self.style = ttk.Style(root)
+        # フォントの解決はスタイルを組む前。ここを飛ばすと F_* が既定のまま
+        # 固定され、ウィジェットの幅も「実際には使われないフォント」で測られる
+        theme.set_language_font(current_language(), tkfont.families(root))
+        theme.apply_ttk_theme(self.style)
 
         self._build_menu()
         self._build_layout()

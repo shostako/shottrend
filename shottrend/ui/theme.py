@@ -17,6 +17,9 @@ MPS08B 本体アプリ (Mold Marshalling System) の画面から実測した色�
 
 from __future__ import annotations
 
+from collections.abc import Collection, Iterable
+from tkinter import font as tkfont
+
 # --- 面 ---
 BG = "#F2F5FF"  # ウィンドウ地（本体実測値）
 PANEL = "#FFFFFF"  # カード・テーブルの地
@@ -102,8 +105,24 @@ DOWN = "#1565C0"  # 下がった
 FLAT = "#8B96A8"
 
 # --- フォント ---
+#: 数値用の等幅。桁が揃うことだけが要件なので言語に依存しない。
 MONO = "Consolas"
-UI = "Yu Gothic UI"
+
+#: 言語ごとの UI フォント候補。Windows 標準で入っているものを先頭から探す。
+#:
+#: 候補を複数持つのは、日本語 Windows に Microsoft JhengHei が入っていない
+#: ような状況が現実にあるため。1 つも見つからなければ豆腐が並ぶより日本語
+#: 用のフォントで代用するほうがまだ読める。
+UI_FONT_CANDIDATES: dict[str, tuple[str, ...]] = {
+    "ja": ("Yu Gothic UI", "Meiryo UI", "MS UI Gothic"),
+    "en": ("Segoe UI", "Yu Gothic UI"),
+    "zh-Hant": ("Microsoft JhengHei UI", "Microsoft JhengHei", "PMingLiU"),
+    "zh-Hans": ("Microsoft YaHei UI", "Microsoft YaHei", "SimSun"),
+    "ko": ("Malgun Gothic", "Gulim"),
+}
+
+#: 現在の UI フォント。`set_language_font()` が差し替える。
+UI = UI_FONT_CANDIDATES["ja"][0]
 
 F_HUGE = (MONO, 38, "bold")  # 最新ショットのピーク値
 F_LARGE = (MONO, 20, "bold")
@@ -115,6 +134,59 @@ F_TINY = (UI, 8)
 F_STAT = (MONO, 10)
 F_STAT_S = (MONO, 9)
 F_TABLE = (MONO, 10)
+
+
+def resolve_ui_font(lang: str, families: Collection[str]) -> str:
+    """その言語で使えるフォント名を候補から選ぶ。
+
+    Tk を触らない純関数にしてあるのでテストできる（`families` は
+    `tkinter.font.families(root)` の結果を渡す）。
+    """
+    candidates = UI_FONT_CANDIDATES.get(lang, ()) + UI_FONT_CANDIDATES["ja"]
+    available = set(families)
+    for name in candidates:
+        if name in available:
+            return name
+    # 導入済みフォントが 1 つも一致しない。Tk が既定にフォールバックする
+    return candidates[0]
+
+
+def set_language_font(lang: str, families: Collection[str]) -> None:
+    """UI 系フォントの家族名を差し替える。等幅 (MONO) は触らない。
+
+    UI の各ウィジェットは `theme.F_LABEL` の形で**属性参照**しているので、
+    ここでモジュール変数を差し替えれば次の描画から反映される。ただし ttk は
+    スタイル生成時にタプルを取り込むため、`apply_ttk_theme()` の呼び直しが
+    別途要る。
+    """
+    global UI, F_TITLE, F_LABEL, F_SMALL, F_TINY
+    UI = resolve_ui_font(lang, families)
+    F_TITLE = (UI, 12, "bold")
+    F_LABEL = (UI, 10)
+    F_SMALL = (UI, 9)
+    F_TINY = (UI, 8)
+
+
+def text_px(texts: Iterable[str], font, pad: int = 0) -> int:
+    """その font で描いたときの最大幅（ピクセル）。
+
+    文字数や `unicodedata.east_asian_width` による近似は使わない。`MPa·s` の
+    中黒 (U+00B7) は Ambiguous で、幅が環境依存になる。実フォントで測るほうが
+    確実で、訳語を足しても勝手に追従する。
+    """
+    f = tkfont.Font(font=font)
+    return max((f.measure(s) for s in texts), default=0) + pad
+
+
+def text_cells(texts: Iterable[str], font, extra: int = 2) -> int:
+    """ttk の `width`（文字数単位）を実測幅から決める。
+
+    ttk の width は「そのフォントでの `0` の幅」を単位とするので、ピクセルの
+    実測から換算できる。
+    """
+    f = tkfont.Font(font=font)
+    unit = max(1, f.measure("0"))
+    return text_px(texts, font) // unit + extra
 
 
 def apply_ttk_theme(style) -> None:
