@@ -3,6 +3,13 @@
 [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠、[セマンティック バージョニング](https://semver.org/lang/ja/) に従う。
 `0.x` 系のため、マイナー版の更新に後方非互換の変更を含むことがある。
 
+## [未リリース]
+
+### 変更
+
+- 合成値カードの見出しから「合成値」の接頭辞を外し、種類だけ（`最大` / `最小` / `平均` / `差`）にした。
+  何の値かはコントロールバーの「合成値」グループが示しており、カード側で繰り返す意味が無い
+
 ## [0.3.0] — 2026-09-03
 
 ### 変更
@@ -90,6 +97,7 @@ MPS08B のサマリ CSV を追従してショットごとのピーク圧力を�
   明るい地で読めない色（黄・シアン・緑）は文字用に沈めた版を別に持つ
 - 単体テスト 34 件。合成 CSV（104 列・CRLF・末尾カンマ）で不完全行・ヘッダ再挿入・トランケート復帰・mtime 判定を検証
 
+[未リリース]: https://github.com/shostako/shottrend/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/shostako/shottrend/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/shostako/shottrend/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shostako/shottrend/releases/tag/v0.1.0
