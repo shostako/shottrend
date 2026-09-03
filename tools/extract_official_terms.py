@@ -41,8 +41,9 @@ BAML はレコード列で、可変長のレコードは種別バイトの直後
 検証にかけるので、たまたまレコードに見えるバイト列（`10 02 00` は「空の
 Text」として検証を通る）が混ざりうる。値の位置は「値の並びの先頭」からの相対
 なので、偽物が値の並びより手前にあると全部のキーが一斉にずれる。だから先頭は
-「最初に見つかった値レコード」ではなく、**全部のキーの位置が値レコードに
-当たる候補**として選ぶ（`parse_baml`）。
+「最初に見つかった値レコード」ではなく、**最も多くのキーを解決できる候補**を
+多数決で選ぶ（`_values_origin`）。偽物は Text にも DefAttributeKeyString にも
+化けうるので、どちらか一方だけを前提にした選び方はしない。
 """
 
 from __future__ import annotations
@@ -202,11 +203,7 @@ def parse_baml(blob: bytes) -> dict[str, str]:
 
     if not texts or not keys:
         return {}
-    # 値の並びの先頭を決める。単に最小の位置を採ると、偽のレコード（module
-    # docstring 参照）が値の並びより手前にあったときに全部のキーがずれる。
-    # 全部のキーの位置が値レコードに当たる候補だけが本物の先頭。
-    offsets = {offset for _, offset in keys}
-    origin = next((c for c in sorted(texts) if all(c + off in texts for off in offsets)), None)
+    origin = _values_origin(keys, texts)
     if origin is None:
         return {}
 
@@ -217,6 +214,36 @@ def parse_baml(blob: bytes) -> dict[str, str]:
         if name is not None and text is not None:
             out[name] = text
     return out
+
+
+def _values_origin(keys: list[tuple[int, int]], texts: dict[int, str]) -> int | None:
+    """値の並びの先頭にあたる位置。決められなければ None。
+
+    偽のレコード（module docstring 参照）は Text にも DefAttributeKeyString にも
+    化けうるので、**多数決で決める**。実キーは 350 個以上あり、偽のキーが持つ
+    出鱈目な相対位置が本物と揃うことはまず無い。
+
+    - 「最初に見つかった値レコード」を先頭とみなすと、偽の Text が値の並びの
+      手前にあるだけで全部のキーが静かにずれる
+    - 逆に「全部のキーが解決できる候補」を要求すると、偽のキーが 1 つ混ざる
+      だけでどの候補も条件を満たさなくなり、その言語がまるごと落ちる
+
+    どちらにも倒れないよう、**最も多くのキーを解決できる候補**を採る。同数なら
+    前にあるほうを採る（同数で割れること自体がまず起きない）。
+
+    ここで「解決できた数が過半数か」といった閾値は置かない。実キーが少ない
+    表を正当に落としてしまううえ、走査が失敗していれば `main()` の
+    `CITED_KEYS` の検査（言語ごと）が必ず捕まえる。守れない条件をここに
+    増やさない。
+    """
+    offsets = {offset for _, offset in keys}
+    best: int | None = None
+    best_hits = 0
+    for candidate in sorted(texts):
+        hits = sum(1 for off in offsets if candidate + off in texts)
+        if hits > best_hits:
+            best, best_hits = candidate, hits
+    return best
 
 
 def _read_record(blob: bytes, pos: int):

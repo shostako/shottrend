@@ -87,7 +87,7 @@ def test_streams_are_found_at_any_file_offset(pad):
     assert data[offset : offset + size] == b"BAML-PAYLOAD"
 
 
-def build_baml(pairs: dict[str, str], decoy: bytes = b"") -> bytes:
+def build_baml(pairs: dict[str, str], decoy: bytes = b"", extra_keys: bytes = b"") -> bytes:
     """`x:Key` と値だけを持つ最小の BAML を組む。
 
     可変長レコードのサイズ欄は「種別バイトを含まず、サイズ欄自身は含む」。
@@ -116,6 +116,7 @@ def build_baml(pairs: dict[str, str], decoy: bytes = b"") -> bytes:
             extract.REC_DEF_KEY_STRING,
             struct.pack("<hi", i, offset) + b"\x01\x01",
         )
+    out += extra_keys  # 本物のキーに紛れ込む偽の DefAttributeKeyString
     out += decoy  # 値の並びの手前に置く（種別を知らないレコードの中身のつもり）
     for v in values:
         out += v
@@ -143,3 +144,62 @@ def test_bytes_that_merely_look_like_a_record_do_not_shift_the_values():
     pairs = {"VL_N00_Peak": "ピーク", "SW_RisingTime": "上昇時間"}
     blob = build_baml(pairs, decoy=b"\x10\x02\x00")
     assert extract.parse_baml(blob) == pairs
+
+
+def _fake_key_record(offset: int) -> bytes:
+    """`REC_DEF_KEY_STRING` として検証を通ってしまうバイト列。"""
+    body = struct.pack("<hi", 999, offset) + b"\x01\x01"
+    return bytes([extract.REC_DEF_KEY_STRING]) + write_7bit(len(body) + 1) + body
+
+
+def test_a_spurious_key_does_not_take_down_the_whole_language():
+    """偽のキーが混ざっても本物のキーは読める。
+
+    「全部のキーが解決できる候補」を先頭に要求すると、偽キーの出鱈目な相対
+    位置が 1 つ混ざるだけでどの候補も条件を満たさなくなり、その言語がまるごと
+    落ちる。多数決なら偽キーは 1 票にしかならない。
+    """
+    pairs = {f"K{i:03d}": f"訳{i}" for i in range(40)}
+    blob = build_baml(pairs, extra_keys=_fake_key_record(0x7FFFFF))
+    assert extract.parse_baml(blob) == pairs
+
+
+def test_spurious_text_and_key_together():
+    """偽の Text と偽の Key が両方あっても本物が読める。"""
+    pairs = {f"K{i:03d}": f"訳{i}" for i in range(40)}
+    blob = build_baml(pairs, decoy=b"\x10\x02\x00", extra_keys=_fake_key_record(0x123456))
+    assert extract.parse_baml(blob) == pairs
+
+
+def test_garbage_yields_nothing_rather_than_a_wrong_answer():
+    """本物のキーが 1 つも解決できないなら空を返す（誤った対応表を作らない）。"""
+    blob = _fake_key_record(0x7FFFFF) * 3 + b"\x10\x02\x00"
+    assert extract.parse_baml(blob) == {}
+
+
+def test_a_language_missing_a_cited_key_is_an_error(monkeypatch, tmp_path):
+    """1 言語でも引用キーが欠けたら CSV を書かずに止まる。
+
+    和集合で見ていると、その言語だけ抽出が壊れていても「空欄の並んだ CSV」が
+    成功として出てしまう。訳語の根拠として使えないものを黙って残さない。
+    """
+    full = {key: "x" for key in extract.CITED_KEYS}
+    tables = {code: dict(full) for code in extract.COLUMNS[1:]}
+    del tables["ko"][extract.CITED_KEYS[0]]
+    monkeypatch.setattr(extract, "extract", lambda _path: tables)
+
+    out = tmp_path / "terms.csv"
+    assert extract.main(["dummy.exe", "-o", str(out)]) == 1
+    assert not out.exists()
+
+
+def test_complete_tables_are_written(monkeypatch, tmp_path):
+    full = {key: "x" for key in extract.CITED_KEYS}
+    tables = {code: dict(full) for code in extract.COLUMNS[1:]}
+    monkeypatch.setattr(extract, "extract", lambda _path: tables)
+
+    out = tmp_path / "terms.csv"
+    assert extract.main(["dummy.exe", "-o", str(out)]) == 0
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == ",".join(extract.COLUMNS)
+    assert len(lines) == 1 + len(extract.CITED_KEYS)
