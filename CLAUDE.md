@@ -38,6 +38,12 @@
 
 **`shottrend/core/` に tkinter を import しない。** これが崩れるとテストが GUI 環境を要求するようになる。UI 層は `MonitorService.poll()` を呼んで結果を描くだけで、判断ロジックを持たない。
 
+**`shottrend/core/` に `i18n` を import しない。** core は言語を知らないまま保つ。画面に出す言葉は `shottrend/i18n/` にあり、core が UI に渡すのは `MSG_NO_ROOT` のような**翻訳キー**（`STATUS_RUNNING` と同種の不透明な識別子）とパラメータだけ。core が翻訳関数を呼び始めると、`MonitorService` のテストが「その時点の表示言語」に依存して実行順序で壊れる。`tests/test_i18n.py` が import を走査して見張っている。
+
+**画面に出す文字列をコードに直接書かない。** すべて `i18n.t()` 経由。翻訳表は言語ごとの Python モジュール（`i18n/ja.py` など）で、**`i18n/__init__.py` から静的に import する**。`importlib.import_module()` のような動的 import は PyInstaller の静的解析から見えず、ソースでは動くのに exe だけ `ModuleNotFoundError` で落ちる（windowed なので理由が出ない）。プレースホルダは必ず名前付き（`{count}`）にする。位置指定だと訳文で語順を変えられない。
+
+**訳さないもの**: 単位（MPa, MPa·s, s）、`CH01` などの ch 名、テーブル列見出しの `Shot` / `Time` / `interval`（MPS08B の CSV の列名そのもの＝データ源の識別子）、カード内の `max/min/avg/σ`。
+
 **絶対パスを埋め込まない。** MMS_DATA の場所は `config.json` にあり GUI から変更できる。開発中に実際にユーザーがアプリ一式を Desktop から Documents へ移動した。
 
 **フォルダ名で並べ替えない。** 最新セッションの判定は CSV の mtime のみ。`separate_20260219` / `_20260828` / `DefaultFile001_20260216` が実在し、同日 2 フォルダ併存もある。
@@ -49,9 +55,10 @@ CSV はヘッダにある `CHnn_<項目>` を項目ごとに全部読み、`Shot
 書き続けるので、列の有無では判別できない。ch が 4 本以上になったらカードは
 自動で小型版に切り替わる。
 
-**表示項目は全 ch 共通で 1 つ。** 項目の一覧と表示名・単位・桁数は `shottrend/core/metrics.py`
-が単一ソース。ch ごとに項目を変えられる作りにしない（縦軸が 1 本のグラフに載らず、
-合成値も意味を失う）。センサ接続の判定は表示項目に関係なくピークで行う。
+**表示項目は全 ch 共通で 1 つ。** 項目の一覧と単位・桁数は `shottrend/core/metrics.py`
+が単一ソース（表示名は言語で変わるので `i18n` が持つ）。ch ごとに項目を変えられる
+作りにしない（縦軸が 1 本のグラフに載らず、合成値も意味を失う）。センサ接続の判定は
+表示項目に関係なくピークで行う。
 
 **`after()` の予約は必ず `after_cancel` してから入れ直す**（`_schedule()` / `_cancel_scheduled()`）。多重ループはこの手のアプリの定番事故。`_tick()` は `finally` で必ず再予約し、例外でループを止めない。
 

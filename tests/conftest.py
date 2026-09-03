@@ -10,6 +10,20 @@ from __future__ import annotations
 
 import pytest
 
+from shottrend import i18n
+
+
+@pytest.fixture(autouse=True)
+def _reset_language():
+    """表示言語はグローバル状態なので、テストの外へ漏らさない。
+
+    これが無いと、言語を切り替えるテストの後に走るテストが別の言語で動き、
+    実行順序によって結果が変わる。
+    """
+    yield
+    i18n.set_language(i18n.DEFAULT_LANG)
+
+
 # 実データのヘッダを再現する。CH01_peak が 23、CH02_peak が 24 列目に来る。
 _GROUPS = (
     "error",

@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from .metrics import DEFAULT_METRIC
 from .models import Shot
 
-#: テーブルの合成値列のモード。default は "max"。
+#: テーブルの合成値列のモード。default は先頭の "max"。
+#: 表示名は `i18n.composite_label()` が持つ（core は言語を知らない）。
 COMPOSITE_MODES = ("max", "min", "avg", "diff")
-COMPOSITE_LABELS = {"max": "最大", "min": "最小", "avg": "平均", "diff": "差"}
 
 
 def composite(

@@ -14,12 +14,11 @@ from tkinter import ttk
 
 from shottrend.core.config import CHART_KINDS, WINDOW_SIZES
 from shottrend.core.metrics import METRICS
-from shottrend.core.stats import COMPOSITE_LABELS, COMPOSITE_MODES
+from shottrend.core.stats import COMPOSITE_MODES
+from shottrend.i18n import composite_label, metric_label, t
 
 from . import theme
 from .widgets import SegmentedControl
-
-_KIND_LABELS = {"line": "折れ線", "bar": "棒"}
 
 
 class ControlBar(ttk.Frame):
@@ -31,14 +30,16 @@ class ControlBar(ttk.Frame):
         # 項目（ピーク／積分値／…）。11 択なのでセグメントでなくドロップダウン。
         # 全 ch 共通で 1 つ。ch ごとに変えると縦軸が 1 本のグラフに載らないし、
         # 合成値も意味を失う
-        ttk.Label(self, text="項目", style="MutedBg.TLabel").pack(side="left", padx=(0, 6))
+        ttk.Label(self, text=t("control.metric"), style="MutedBg.TLabel").pack(
+            side="left", padx=(0, 6)
+        )
         self._metric_keys = [m.key for m in METRICS]
         self.metric_box = ttk.Combobox(
             self,
             state="readonly",
             width=11,
             font=theme.F_LABEL,
-            values=[f"{m.label} [{m.unit}]" for m in METRICS],
+            values=[f"{metric_label(m.key)} [{m.unit}]" for m in METRICS],
         )
         self.metric_box.current(
             self._metric_keys.index(cfg.metric) if cfg.metric in self._metric_keys else 0
@@ -50,18 +51,18 @@ class ControlBar(ttk.Frame):
         self.metric_box.pack(side="left", padx=(0, 22))
 
         self.window_group = self._group(
-            "表示数", [(n, str(n)) for n in WINDOW_SIZES], cfg.window_size, on_window, 46
+            t("control.window"), [(n, str(n)) for n in WINDOW_SIZES], cfg.window_size, on_window, 46
         )
         self.kind_group = self._group(
-            "形式",
-            [(k, _KIND_LABELS[k]) for k in CHART_KINDS],
+            t("control.kind"),
+            [(k, t(f"chart_kind.{k}")) for k in CHART_KINDS],
             cfg.chart_kind,
             on_kind,
             58,
         )
         self.composite_group = self._group(
-            "合成値",
-            [(m, COMPOSITE_LABELS[m]) for m in COMPOSITE_MODES],
+            t("control.composite"),
+            [(m, composite_label(m)) for m in COMPOSITE_MODES],
             cfg.composite_mode,
             on_composite,
             48,
@@ -72,7 +73,7 @@ class ControlBar(ttk.Frame):
         self._delta_var = tk.BooleanVar(value=bool(cfg.show_delta_columns))
         ttk.Checkbutton(
             self,
-            text="差分列",
+            text=t("control.delta"),
             variable=self._delta_var,
             command=lambda: on_delta(self._delta_var.get()),
             style="TCheckbutton",

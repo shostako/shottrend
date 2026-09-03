@@ -25,6 +25,13 @@ STATUS_NODATA = "nodata"
 STATUS_ERROR = "error"
 STATUS_NOROOT = "noroot"
 
+#: UI に返すメッセージ。**表示文字列ではなく翻訳キー**で、STATUS_* と同じく
+#: 不透明な識別子。文言に変えるのは UI 層の仕事（core は言語を知らない）。
+MSG_NO_ROOT = "msg.no_root"
+MSG_READ_RETRY = "msg.read_retry"  # params: count
+MSG_NO_DATA = "msg.no_data"
+MSG_SKIPPED = "msg.skipped"  # params: rows
+
 #: 無通信を「止まっている」と判断するまでの許容秒数の下限・上限。
 #: 罠4: interval は実測で 0.0〜1,288,852 秒とばらつくため固定値は使えない。
 #: 直近の interval の中央値 × 3 を採り、この範囲にクランプする。
@@ -43,7 +50,9 @@ class PollResult:
     session: Session | None = None
     reloaded: bool = False
     status: str = STATUS_NODATA
-    message: str = ""
+    message_key: str = ""
+    """翻訳キー（`MSG_*`）。空なら表示するメッセージ無し。"""
+    message_params: dict[str, object] = field(default_factory=dict)
 
 
 class MonitorService:
@@ -87,14 +96,14 @@ class MonitorService:
             latest = self.scanner.latest()
             if latest is None:
                 if self.session is None:
-                    return PollResult(status=STATUS_NOROOT, message="データフォルダが見つからない")
+                    return PollResult(status=STATUS_NOROOT, message_key=MSG_NO_ROOT)
             elif self.session is None or latest.csv != self.session.csv:
                 log.info("switching session: %s", latest.csv)
                 self.select_session(latest, follow=True)
                 session_changed = True
 
         if self._reader is None or self.session is None:
-            return PollResult(status=STATUS_NOROOT, message="データフォルダが見つからない")
+            return PollResult(status=STATUS_NOROOT, message_key=MSG_NO_ROOT)
 
         result = self._reader.read_new()
         if not result.ok:
@@ -102,7 +111,8 @@ class MonitorService:
                 session=self.session,
                 session_changed=session_changed,
                 status=STATUS_ERROR,
-                message=f"読み取り再試行中 ({self._reader.fail_count}回)",
+                message_key=MSG_READ_RETRY,
+                message_params={"count": self._reader.fail_count},
             )
 
         if result.reloaded:
@@ -113,13 +123,15 @@ class MonitorService:
         if added:
             self._last_change = now
 
+        message_key, message_params = self._message(result.skipped)
         return PollResult(
             new_shots=added,
             session_changed=session_changed,
             session=self.session,
             reloaded=result.reloaded,
             status=self._status(now),
-            message=self._message(result.skipped),
+            message_key=message_key,
+            message_params=message_params,
         )
 
     # ------------------------------------------------------------------- status
@@ -140,10 +152,10 @@ class MonitorService:
         elapsed = (now - latest.dt).total_seconds()
         return STATUS_RUNNING if elapsed <= self.idle_threshold_sec() else STATUS_IDLE
 
-    def _message(self, skipped: int) -> str:
-        latest = self.history.latest()
-        if latest is None:
-            return "データなし"
+    def _message(self, skipped: int) -> tuple[str, dict[str, object]]:
+        """状態帯に添えるメッセージの翻訳キーとパラメータ。"""
+        if self.history.latest() is None:
+            return MSG_NO_DATA, {}
         if skipped:
-            return f"{skipped}行スキップ"
-        return ""
+            return MSG_SKIPPED, {"rows": skipped}
+        return "", {}

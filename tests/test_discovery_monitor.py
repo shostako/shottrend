@@ -5,7 +5,14 @@ from datetime import datetime, timedelta
 
 from shottrend.core.discovery import DataRootScanner
 from shottrend.core.history import ShotHistory
-from shottrend.core.monitor import STATUS_IDLE, STATUS_NOROOT, STATUS_RUNNING, MonitorService
+from shottrend.core.monitor import (
+    MSG_NO_ROOT,
+    MSG_SKIPPED,
+    STATUS_IDLE,
+    STATUS_NOROOT,
+    STATUS_RUNNING,
+    MonitorService,
+)
 
 from .conftest import HEADER_LINE, data_line
 
@@ -120,6 +127,23 @@ def test_no_data_root(tmp_path):
     svc = MonitorService(DataRootScanner(tmp_path / "missing"), ShotHistory())
     r = svc.poll(now=datetime(2026, 9, 1, 10, 0, 0), rescan=True)
     assert r.status == STATUS_NOROOT
+    # core は表示文言ではなく翻訳キーを返す。日本語を assert すると、訳語を
+    # 直すたびに core のテストが割れる
+    assert r.message_key == MSG_NO_ROOT
+
+
+def test_skipped_rows_are_reported_as_key_and_params(tmp_path):
+    """壊れた行があったら、行数をパラメータとして UI に渡す。"""
+    make_session_dir(
+        tmp_path,
+        "s_20260901",
+        [HEADER_LINE, data_line(1, "2026/09/01 10:00:00", 50.0, 51.0), "壊れた,行,です", ""],
+        mtime=1_700_000_000.0,
+    )
+    svc = MonitorService(DataRootScanner(tmp_path), ShotHistory())
+    r = svc.poll(now=datetime(2026, 9, 1, 10, 0, 10), rescan=True)
+    assert r.message_key == MSG_SKIPPED
+    assert r.message_params == {"rows": 1}
 
 
 def test_idle_threshold_uses_median_interval(tmp_path):
