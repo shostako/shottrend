@@ -34,12 +34,13 @@ class ControlBar(ttk.Frame):
             side="left", padx=(0, 6)
         )
         self._metric_keys = [m.key for m in METRICS]
+        values = [f"{metric_label(m.key)} [{m.unit}]" for m in METRICS]
         self.metric_box = ttk.Combobox(
             self,
             state="readonly",
-            width=11,
+            width=theme.text_cells(values, theme.F_LABEL),
             font=theme.F_LABEL,
-            values=[f"{metric_label(m.key)} [{m.unit}]" for m in METRICS],
+            values=values,
         )
         self.metric_box.current(
             self._metric_keys.index(cfg.metric) if cfg.metric in self._metric_keys else 0
@@ -50,22 +51,22 @@ class ControlBar(ttk.Frame):
         )
         self.metric_box.pack(side="left", padx=(0, 22))
 
+        # セグメント幅は SegmentedControl がラベルを実測して決める。46/58/48 と
+        # いった数字は日本語の字面に合わせたもので、他言語では必ず外れる
         self.window_group = self._group(
-            t("control.window"), [(n, str(n)) for n in WINDOW_SIZES], cfg.window_size, on_window, 46
+            t("control.window"), [(n, str(n)) for n in WINDOW_SIZES], cfg.window_size, on_window
         )
         self.kind_group = self._group(
             t("control.kind"),
             [(k, t(f"chart_kind.{k}")) for k in CHART_KINDS],
             cfg.chart_kind,
             on_kind,
-            58,
         )
         self.composite_group = self._group(
             t("control.composite"),
             [(m, composite_label(m)) for m in COMPOSITE_MODES],
             cfg.composite_mode,
             on_composite,
-            48,
         )
 
         # 差分列は「出す／出さない」の二値なのでチェックボックス。セグメント型に
@@ -79,8 +80,8 @@ class ControlBar(ttk.Frame):
             style="TCheckbutton",
         ).pack(side="left", padx=(0, 22))
 
-    def _group(self, label: str, options, initial, callback, seg_width: int):
+    def _group(self, label: str, options, initial, callback):
         ttk.Label(self, text=label, style="MutedBg.TLabel").pack(side="left", padx=(0, 6))
-        ctrl = SegmentedControl(self, options, initial, callback, seg_width=seg_width)
+        ctrl = SegmentedControl(self, options, initial, callback)
         ctrl.pack(side="left", padx=(0, 22))
         return ctrl

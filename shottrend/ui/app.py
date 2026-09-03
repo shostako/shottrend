@@ -68,8 +68,10 @@ class MonitorApp:
         root.geometry(self.cfg.geometry)
         root.minsize(1000, 700)
 
-        style = ttk.Style(root)
-        theme.apply_ttk_theme(style)
+        # 言語を切り替えるとフォントが変わり、ttk のスタイルを作り直す必要が
+        # あるので参照を持っておく（ttk はスタイル生成時にフォントを取り込む）
+        self.style = ttk.Style(root)
+        theme.apply_ttk_theme(self.style)
 
         self._build_menu()
         self._build_layout()

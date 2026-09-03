@@ -208,6 +208,55 @@ def test_about_lines_keep_their_values():
     assert i18n.t("about.data", path=i18n.t("about.unset")) == "データ: (未設定)"
 
 
+# ------------------------------------------------------------------ フォント
+
+
+@pytest.mark.parametrize(
+    ("lang", "families", "expected"),
+    [
+        ("ko", {"Malgun Gothic", "Segoe UI"}, "Malgun Gothic"),
+        ("ko", {"Gulim"}, "Gulim"),  # 第 1 候補が無ければ次へ
+        ("zh-Hant", {"PMingLiU", "Yu Gothic UI"}, "PMingLiU"),
+        ("zh-Hans", {"Microsoft YaHei UI"}, "Microsoft YaHei UI"),
+        ("en", {"Segoe UI"}, "Segoe UI"),
+        # その言語の候補が全滅したら日本語用へ。豆腐を並べるよりまし
+        ("ko", {"Yu Gothic UI"}, "Yu Gothic UI"),
+    ],
+)
+def test_resolve_ui_font(lang, families, expected):
+    from shottrend.ui import theme
+
+    assert theme.resolve_ui_font(lang, families) == expected
+
+
+def test_resolve_ui_font_never_raises_on_empty_family_list():
+    """フォントが 1 つも見つからなくても名前を返す（Tk が既定に倒す）。"""
+    from shottrend.ui import theme
+
+    assert theme.resolve_ui_font("ko", set())
+    assert theme.resolve_ui_font("xx", set())
+
+
+def test_set_language_font_leaves_monospace_alone():
+    """数値用の等幅は言語で変えない。桁が揃うことだけが要件。"""
+    from shottrend.ui import theme
+
+    before = (theme.F_HUGE, theme.F_STAT, theme.F_TABLE)
+    try:
+        theme.set_language_font("ko", {"Malgun Gothic"})
+        assert theme.F_LABEL[0] == "Malgun Gothic"
+        assert (theme.F_HUGE, theme.F_STAT, theme.F_TABLE) == before
+    finally:
+        theme.set_language_font("ja", {"Yu Gothic UI"})
+
+
+def test_every_language_has_font_candidates():
+    """言語を足したらフォント候補も足す。片方だけ増えると豆腐になる。"""
+    from shottrend.ui import theme
+
+    assert set(theme.UI_FONT_CANDIDATES) == set(LANGUAGES)
+
+
 # ------------------------------------------------------------- ロケール検出
 
 
