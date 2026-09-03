@@ -42,6 +42,8 @@
 
 **画面に出す文字列をコードに直接書かない。** すべて `i18n.t()` 経由。翻訳表は言語ごとの Python モジュール（`i18n/ja.py` など）で、**`i18n/__init__.py` から静的に import する**。`importlib.import_module()` のような動的 import は PyInstaller の静的解析から見えず、ソースでは動くのに exe だけ `ModuleNotFoundError` で落ちる（windowed なので理由が出ない）。プレースホルダは必ず名前付き（`{count}`）にする。位置指定だと訳文で語順を変えられない。
 
+**訳語は MPS08B 本体アプリの表記に合わせる。** 同じ値を本体と違う言葉で呼ぶと現場で混乱する。根拠にした対訳は `docs/official_terms.csv`（`tools/extract_official_terms.py` が本体の exe から抜く）。公式訳には機械翻訳由来の壊れたものが混じっているが、**直すのは意味が違うものだけ**。語感が古い・不自然という程度なら本体に合わせたままにし、直した行にはカタログへ「公式は○○だが誤訳なので変えた」とコメントを残す。本体アプリの文字列は他社の著作物なので、CSV には ShotTrend が実際に引いているキーだけを載せる（`CITED_KEYS`）。
+
 **訳さないもの**: 単位（MPa, MPa·s, s）、`CH01` などの ch 名、テーブル列見出しの `Shot` / `Time` / `interval`（MPS08B の CSV の列名そのもの＝データ源の識別子）、カード内の `max/min/avg/σ`。
 
 **言語の切替は画面を丸ごと組み直す**（`MonitorApp._rebuild_ui()`）。ウィジェットごとに `retranslate()` を配る方式は採らない。`control_bar._group()` や `header_panel` の見出しは参照を保持しない匿名ラベルで、その方式だと「ラベルを足したとき retranslate に足し忘れる」バグが構造的に残るため。**`root` の直下にウィジェットを足したら `_rebuild_ui()` の destroy 対象にも足すこと**（`tests/test_i18n.py` が対応を見張る）。`ttk.Style` はフォントのタプルを生成時に取り込むので、切替のたびに `apply_ttk_theme()` を通し直す。

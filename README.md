@@ -52,11 +52,16 @@ py -3.12 app.pyw
 
 ### 表示言語
 
-メニューの「言語 / Language」から選ぶ。選んだ瞬間に画面を組み直すので、再起動は要らない。
-選択は `config.json` に残る。初回は OS の表示言語から推測し、判別できなければ日本語。
+日本語 / English / 繁體中文 / 简体中文 / 한국어。メニューの「言語 / Language」から選ぶ。
+選んだ瞬間に画面を組み直すので、再起動は要らない。選択は `config.json` に残る。
+初回は OS の表示言語から推測し、判別できなければ日本語。
 
 測定に関わる用語（項目名など）は MPS08B 本体アプリ（PPSB v1.3.0.5）の表記に合わせてある。
-本体と違う言葉で同じ値を呼ぶと現場で混乱するため。単位（`MPa` / `MPa·s` / `s`）、`CH01` などの
+本体と違う言葉で同じ値を呼ぶと現場で混乱するため。根拠にした対訳は
+[`docs/official_terms.csv`](docs/official_terms.csv) に置いてある（本体アプリから
+`tools/extract_official_terms.py` で抜ける。載せているのは ShotTrend が実際に根拠に
+しているキーだけ）。公式訳のうち**意味が壊れているものだけ**直してあり、直した行には
+その旨をカタログにコメントで残している。単位（`MPa` / `MPa·s` / `s`）、`CH01` などの
 ch 名、テーブルの `Shot` / `Time` / `interval`（MPS08B の CSV の列名そのもの）は訳さない。
 
 英語のラベルは日本語より横に長いので、**ウィンドウの最小幅は言語によって変わる**
@@ -82,7 +87,7 @@ ch 名、テーブルの `Shot` / `Time` / `interval`（MPS08B の CSV の列名
 
 ### 表示できる項目
 
-コントロールバーの「項目」で切り替える。**全 ch 共通で 1 項目**（ch ごとに変えると縦軸が 1 本のグラフに載らず、ch 間の比較も合成値も意味を失う）。表示名は本体アプリの演算値プルダウンに合わせてある。
+コントロールバーの「項目」で切り替える。**全 ch 共通で 1 項目**（ch ごとに変えると縦軸が 1 本のグラフに載らず、ch 間の比較も合成値も意味を失う）。表示名は本体アプリのリソースの表記に合わせてある。
 
 | 表示名 | CSV の列 | 単位 | 桁 |
 |---|---|---|---|
@@ -92,10 +97,11 @@ ch 名、テーブルの `Shot` / `Time` / `interval`（MPS08B の CSV の列名
 | ピーク積分 | `CHnn_peak_integral` | MPa·s | 2 |
 | t秒後値 | `CHnn_pointMonitor` | MPa | 2 |
 | 区間平均値 | `CHnn_section_average` | MPa | 2 |
-| 区間積分1 / 2 | `CHnn_section_integral_1` / `_2` | MPa·s | 2 |
+| 区間積分1 | `CHnn_section_integral_1` | MPa·s | 2 |
+| 区間積分2 | `CHnn_section_integral_2` | MPa·s | 2 |
 | 突出ピーク | `CHnn_eject_Monitor` | MPa | 2 |
-| 立上り時間 | `CHnn_RisingTime` | s | 3 |
-| 立下り時間 | `CHnn_FallingTime` | s | 3 |
+| 上昇時間 | `CHnn_RisingTime` | s | 3 |
+| 下降時間 | `CHnn_FallingTime` | s | 3 |
 
 単位はヘッダに書かれていないため量の意味から付けている。積分の `MPa·s` は推定。
 
@@ -128,7 +134,7 @@ python tools/fake_writer.py --root /tmp/fake_mms --interval 2 --channels 8
 | `metric` | `"peak"` | 表示項目。上の表の「CSV の列」の `CHnn_` を除いた部分 |
 | `composite_mode` | `"max"` | 合成値。`max` / `min` / `avg` / `diff` |
 | `show_delta_columns` | `false` | テーブルに差分列を出すか |
-| `language` | `""` | 表示言語。`""` は OS の表示言語から自動判別。`ja` / `en` |
+| `language` | `""` | 表示言語。`""` は OS の表示言語から自動判別。`ja` / `en` / `zh-Hant` / `zh-Hans` / `ko` |
 | `geometry` | `"1280x880+30+16"` | ウィンドウの大きさと位置。終了時に保存 |
 
 ## データ源
@@ -175,6 +181,7 @@ shottrend/
 tools/
   fake_writer.py  追記シミュレータ
   build.py        配布物の作成（Windows）
+  extract_official_terms.py  本体アプリから 5 言語の対訳を抜く
 shottrend.spec       PyInstaller の定義
 ```
 
@@ -221,7 +228,6 @@ GitHub Actions（`release.yml`）が Windows で lint・テスト・ビルドを
 - コード署名していないので初回起動で SmartScreen が出る
 - 単体 exe は起動時に一時フォルダへ展開するため、初回起動に数秒かかる
 - 積分系の単位 `MPa·s` は本体の表示で確認していない（推定）
-- 対応言語は日本語と英語のみ（繁体中文・简体中文・한국어は用意中）
 
 ## ライセンス
 
