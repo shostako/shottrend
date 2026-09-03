@@ -64,10 +64,10 @@ TEXTS: dict[str, str] = {
     # 末尾は CSV 列名 `CHnn_<key>` の <key> そのもの。camelCase も原文どおりに
     # 保つ（snake_case へ正規化すると変換表が生まれ、必ず drift する）。
     #
-    # 表示名は MPS08B 本体アプリ（PPSB v1.3.0.5）の演算値プルダウンの表記に
-    # 合わせてある。用語が本体と食い違うと現場で混乱するため。立上り／立下り
-    # 時間は本体のプルダウンには無いが CSV には入っているので、こちらで名前を
-    # 付けた。
+    # 表示名は MPS08B 本体アプリ（PPSB v1.3.0.5）のリソースの表記に合わせて
+    # ある。用語が本体と食い違うと現場で混乱するため。対応するリソースキーは
+    # `docs/official_terms.csv` にある（`VL_N00`〜`VL_N08` と
+    # `SW_RisingTime` / `SW_FallingTime`）。
     "metric.peak": "ピーク",
     "metric.integral": "積分値",
     "metric.peak_time": "ピーク到達",
@@ -77,8 +77,8 @@ TEXTS: dict[str, str] = {
     "metric.section_integral_1": "区間積分1",
     "metric.section_integral_2": "区間積分2",
     "metric.eject_Monitor": "突出ピーク",
-    "metric.RisingTime": "立上り時間",
-    "metric.FallingTime": "立下り時間",
+    "metric.RisingTime": "上昇時間",
+    "metric.FallingTime": "下降時間",
     # ------------------------------------------------------------ ヘッダパネル
     "header.session": "表示中のデータ",
     "header.cycle": "サイクル {value} s",

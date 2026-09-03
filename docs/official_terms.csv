@@ -1,0 +1,18 @@
+key,en,ja,zh-Hant,zh-Hans,ko
+VL_N00_Peak,Peak,ピーク,峰值,高峰,피크
+VL_N01_Integral,Integral value,積分値,積分值,积分值,적분값
+VL_N02_PeakTime,Time to Peak,ピーク到達,峰值到達,高峰到达,피크 도달
+VL_N03_PeakIntegral,Integral to Peak,ピーク積分,峰值積分,高峰积分,피크 적분
+VL_N04_tPoint,Point Monitor,t秒後値,t秒後值,t秒后值,t초값
+VL_N05_SectionAverage,Section Average,区間平均値,區段平均值,区间平均值,구간 평균 값
+VL_N06_SectionIntegral1,Section Integral 1,区間積分１,區段積分1,区间积分1,구간 적분 1
+VL_N07_SectionIntegral2,Section Integral 2,区間積分２,區段積分2,区间积分2,구간 적분 2
+VL_N08_EjectPeak,Eject Monitor,突出ピーク,頂出峰值,顶出高峰,돌출 피크
+SW_RisingTime,Risign Time,上昇時間,上升時間,上升时间,상승 시간
+SW_FallingTime,Falling Time,下降時間,下降時間,上升时间,떨어지는 시간
+MW_Menu_File,File(_F),ファイル(_F),檔案（_F）,文件（_F）,파일 (_F)
+MW_About,About,バージョン情報,版本資訊,关于,약
+MT_Item,Item,項目,物品,物品,안건
+Max,Max,最大,最大,最高,최대
+Integral,Integral,積分値,積分值,积分值,완전한
+times,times,回,次,回,타임스
