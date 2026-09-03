@@ -3,7 +3,10 @@
 [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠、[セマンティック バージョニング](https://semver.org/lang/ja/) に従う。
 `0.x` 系のため、マイナー版の更新に後方非互換の変更を含むことがある。
 
-## [未リリース]
+## [0.4.0] — 2026-09-04
+
+**日本語以外でも読めるようになった。** 現場に外国人作業者がいても、本体アプリと同じ 5 言語で
+並べて使える。訳語は MPS08B 本体アプリの表記に揃えてあるので、同じ値を違う言葉で呼ぶことがない。
 
 ### 追加
 
@@ -141,7 +144,8 @@ MPS08B のサマリ CSV を追従してショットごとのピーク圧力を�
   明るい地で読めない色（黄・シアン・緑）は文字用に沈めた版を別に持つ
 - 単体テスト 34 件。合成 CSV（104 列・CRLF・末尾カンマ）で不完全行・ヘッダ再挿入・トランケート復帰・mtime 判定を検証
 
-[未リリース]: https://github.com/shostako/shottrend/compare/v0.3.0...HEAD
+[未リリース]: https://github.com/shostako/shottrend/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/shostako/shottrend/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/shostako/shottrend/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/shostako/shottrend/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shostako/shottrend/releases/tag/v0.1.0
