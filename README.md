@@ -87,7 +87,7 @@ ch 名、テーブルの `Shot` / `Time` / `interval`（MPS08B の CSV の列名
 
 ### 表示できる項目
 
-コントロールバーの「項目」で切り替える。**全 ch 共通で 1 項目**（ch ごとに変えると縦軸が 1 本のグラフに載らず、ch 間の比較も合成値も意味を失う）。表示名は本体アプリの演算値プルダウンに合わせてある。
+コントロールバーの「項目」で切り替える。**全 ch 共通で 1 項目**（ch ごとに変えると縦軸が 1 本のグラフに載らず、ch 間の比較も合成値も意味を失う）。表示名は本体アプリのリソースの表記に合わせてある。
 
 | 表示名 | CSV の列 | 単位 | 桁 |
 |---|---|---|---|
@@ -97,10 +97,11 @@ ch 名、テーブルの `Shot` / `Time` / `interval`（MPS08B の CSV の列名
 | ピーク積分 | `CHnn_peak_integral` | MPa·s | 2 |
 | t秒後値 | `CHnn_pointMonitor` | MPa | 2 |
 | 区間平均値 | `CHnn_section_average` | MPa | 2 |
-| 区間積分1 / 2 | `CHnn_section_integral_1` / `_2` | MPa·s | 2 |
+| 区間積分1 | `CHnn_section_integral_1` | MPa·s | 2 |
+| 区間積分2 | `CHnn_section_integral_2` | MPa·s | 2 |
 | 突出ピーク | `CHnn_eject_Monitor` | MPa | 2 |
-| 立上り時間 | `CHnn_RisingTime` | s | 3 |
-| 立下り時間 | `CHnn_FallingTime` | s | 3 |
+| 上昇時間 | `CHnn_RisingTime` | s | 3 |
+| 下降時間 | `CHnn_FallingTime` | s | 3 |
 
 単位はヘッダに書かれていないため量の意味から付けている。積分の `MPa·s` は推定。
 

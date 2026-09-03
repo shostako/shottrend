@@ -185,6 +185,23 @@ def test_composite_label_falls_back_to_first_mode():
     assert i18n.composite_label("nope") == i18n.composite_label(COMPOSITE_MODES[0])
 
 
+def test_readme_metric_table_matches_the_japanese_catalog():
+    """README の「表示できる項目」表が日本語カタログとずれない。
+
+    項目名は本体アプリの表記に合わせて変わることがあり、実際に
+    「立上り時間」→「上昇時間」で README だけ取り残された。表示名と CSV の
+    列名が同じ行に並んでいることまで見る。
+    """
+    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
+    table = readme.split("### 表示できる項目", 1)[1].split("\n## ", 1)[0]
+    missing = [
+        key
+        for key in METRIC_KEYS
+        if f"| {i18n.ja.TEXTS[f'metric.{key}']} | `CHnn_{key}` |" not in table
+    ]
+    assert not missing, f"README の項目表に無い、または名前がずれている: {missing}"
+
+
 def test_metric_label_covers_every_metric():
     for key in METRIC_KEYS:
         assert i18n.metric_label(key) != f"metric.{key}"
