@@ -87,7 +87,7 @@ def test_streams_are_found_at_any_file_offset(pad):
     assert data[offset : offset + size] == b"BAML-PAYLOAD"
 
 
-def build_baml(pairs: dict[str, str]) -> bytes:
+def build_baml(pairs: dict[str, str], decoy: bytes = b"") -> bytes:
     """`x:Key` と値だけを持つ最小の BAML を組む。
 
     可変長レコードのサイズ欄は「種別バイトを含まず、サイズ欄自身は含む」。
@@ -116,6 +116,7 @@ def build_baml(pairs: dict[str, str]) -> bytes:
             extract.REC_DEF_KEY_STRING,
             struct.pack("<hi", i, offset) + b"\x01\x01",
         )
+    out += decoy  # 値の並びの手前に置く（種別を知らないレコードの中身のつもり）
     for v in values:
         out += v
     return bytes(out)
@@ -129,3 +130,16 @@ def test_baml_keys_and_values_are_paired():
 def test_baml_with_no_values_yields_nothing():
     """値レコードが 1 つも無ければ空。基準位置が決まらないため。"""
     assert extract.parse_baml(b"") == {}
+
+
+def test_bytes_that_merely_look_like_a_record_do_not_shift_the_values():
+    """値の並びの手前に偽のレコードがあってもキーと値がずれない。
+
+    種別を知らないレコードの中身も 1 バイトずつ検証にかけるので、`10 02 00`
+    （空の Text に読める）のようなバイト列を拾ってしまう。先頭を「最初に
+    見つかった値レコード」で決めていると、これだけで全キーが一斉にずれる。
+    しかも壊れ方が「空欄の CSV」なので、出力を見ても異常に見えない。
+    """
+    pairs = {"VL_N00_Peak": "ピーク", "SW_RisingTime": "上昇時間"}
+    blob = build_baml(pairs, decoy=b"\x10\x02\x00")
+    assert extract.parse_baml(blob) == pairs

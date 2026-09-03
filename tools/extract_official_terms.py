@@ -36,6 +36,13 @@ BAML はレコード列で、可変長のレコードは種別バイトの直後
 何も拾えないので、レコードを 1 件ずつ「サイズと実際の長さが一致するか」で
 検証しながら走査する。総当たりで走査して検証に通ったものだけ採るので、途中に
 未知のレコードがあっても止まらない。
+
+**その代わり、偽物を拾うことがある。** 知らないレコードの中身も 1 バイトずつ
+検証にかけるので、たまたまレコードに見えるバイト列（`10 02 00` は「空の
+Text」として検証を通る）が混ざりうる。値の位置は「値の並びの先頭」からの相対
+なので、偽物が値の並びより手前にあると全部のキーが一斉にずれる。だから先頭は
+「最初に見つかった値レコード」ではなく、**全部のキーの位置が値レコードに
+当たる候補**として選ぶ（`parse_baml`）。
 """
 
 from __future__ import annotations
@@ -193,10 +200,16 @@ def parse_baml(blob: bytes) -> dict[str, str]:
         else:
             texts[payload[0]] = payload[1]
 
-    if not texts:
+    if not texts or not keys:
         return {}
-    # 値の位置は「最初の値レコード」からの相対。実データで一致を確認済み
-    origin = min(texts)
+    # 値の並びの先頭を決める。単に最小の位置を採ると、偽のレコード（module
+    # docstring 参照）が値の並びより手前にあったときに全部のキーがずれる。
+    # 全部のキーの位置が値レコードに当たる候補だけが本物の先頭。
+    offsets = {offset for _, offset in keys}
+    origin = next((c for c in sorted(texts) if all(c + off in texts for off in offsets)), None)
+    if origin is None:
+        return {}
+
     out: dict[str, str] = {}
     for name_id, offset in keys:
         name = names.get(name_id)
@@ -269,11 +282,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.all:
         all_keys = sorted(set().union(*(t.keys() for t in tables.values())))
     else:
-        found = set().union(*(t.keys() for t in tables.values()))
-        unknown = [k for k in CITED_KEYS if k not in found]
-        if unknown:
-            print(f"本体に無いキー: {unknown}", file=sys.stderr)
-            return 1
+        # 言語ごとに見る。和集合で見ると、1 言語だけ壊れていても空欄が並んだ
+        # CSV が「成功」として出てしまう
+        for code in COLUMNS[1:]:
+            unknown = [k for k in CITED_KEYS if k not in tables[code]]
+            if unknown:
+                print(f"{code} に無いキー: {unknown}", file=sys.stderr)
+                return 1
         all_keys = list(CITED_KEYS)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8", newline="") as f:
