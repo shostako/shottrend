@@ -90,8 +90,13 @@ def t(key: str, /, **params: object) -> str:
         return text
     try:
         return text.format(**params)
-    except (KeyError, IndexError, ValueError):
-        # 訳文のプレースホルダが崩れている。整形前を返して描画は続ける
+    except Exception:
+        # 訳文のプレースホルダが崩れている。整形前を返して描画は続ける。
+        #
+        # 捕まえる例外を絞らないのは、str.format が投げうる種類が訳文の書き方
+        # 次第で増えるから（`{x.y}` なら AttributeError、`{x[0]}` なら
+        # TypeError）。訳文は外から流し込むデータで、書き方を完全には統制
+        # できない。ここは「例外を外に出さない」を型ではなく境界で守る場所
         log.warning("format failed: key=%s lang=%s", key, _current)
         return text
 

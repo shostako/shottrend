@@ -147,6 +147,26 @@ def test_parameters_are_formatted():
     assert i18n.t("msg.skipped", rows=7) == "7行スキップ"
 
 
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{x.y} 個",  # 属性アクセス -> AttributeError
+        "{x[0]} 個",  # 添字アクセス -> TypeError
+        "{x:>{width}} 個",  # 入れ子の書式指定 -> KeyError
+        "{ 個",  # 閉じていない -> ValueError
+    ],
+)
+def test_broken_placeholder_does_not_raise(monkeypatch, template):
+    """訳文の書き方が壊れていても常駐ループを止めない。
+
+    訳文は外から流し込むデータで、書き方を完全には統制できない。
+    str.format が投げる例外の種類も書き方次第で変わる。
+    """
+    monkeypatch.setitem(i18n.CATALOGS, "xx", {"broken": template})
+    i18n.set_language("xx")
+    assert i18n.t("broken", x=1) == template
+
+
 def test_falls_back_to_japanese(monkeypatch):
     """訳が抜けている言語では日本語が出る（キー文字列を見せるより親切）。"""
     monkeypatch.setitem(i18n.CATALOGS, "xx", {"app.title": "X"})
