@@ -49,6 +49,10 @@ class HeaderPanel(ttk.Frame):
 
         top = ttk.Frame(self, style="TFrame")
         top.pack(fill="x", pady=(0, 8))
+        self._top = top
+        # セッション選択が上段に入りきらないときの 2 段目。必要なときだけ pack する
+        self._top2 = ttk.Frame(self, style="TFrame")
+        self._session_on_second_row = False
 
         self.shot_label = ttk.Label(top, text="Shot ----", font=theme.F_BIG)
         self.shot_label.pack(side="left")
@@ -61,15 +65,60 @@ class HeaderPanel(ttk.Frame):
         self.meta_label = ttk.Label(top, text="", style="MutedBg.TLabel")
         self.meta_label.pack(side="left", padx=(24, 0))
 
-        self.session_box = ttk.Combobox(top, state="readonly", width=28, font=theme.F_SMALL)
+        # セッション選択は「ラベル＋ドロップダウン」で 1 単位。親を self にして
+        # おくと `pack(in_=...)` で上段と 2 段目のどちらにも置ける（tk はウィジェット
+        # の親を変えられないので、置き場所だけを変える）。ウィンドウを半分に
+        # すると上段に収まらず、左のメタ情報とぶつかっていた
+        self._session_unit = ttk.Frame(self, style="TFrame")
+        self.session_box = ttk.Combobox(
+            self._session_unit, state="readonly", width=28, font=theme.F_SMALL
+        )
         self.session_box.pack(side="right")
         self.session_box.bind("<<ComboboxSelected>>", self._session_selected)
-        ttk.Label(top, text=t("header.session"), style="MutedBg.TLabel").pack(
+        ttk.Label(self._session_unit, text=t("header.session"), style="MutedBg.TLabel").pack(
             side="right", padx=(0, 8)
         )
+        self._session_unit.pack(in_=top, side="right")
+        top.bind("<Configure>", self._on_top_configure)
 
         self._card_area = ttk.Frame(self, style="TFrame")
         self._card_area.pack(fill="x")
+
+    # ------------------------------------------------------------- top row
+
+    #: 上段の左側（ショット番号〜メタ情報）とセッション選択の間に最低限残す間隔
+    _TOP_GAP = 24
+
+    def _on_top_configure(self, event: tk.Event) -> None:
+        if event.widget is self._top and event.width > 1:
+            self._reflow_top(event.width)
+
+    def _reflow_top(self, width: int | None = None) -> None:
+        """セッション選択を上段に置くか 2 段目に落とすかを、実際の幅で決める。"""
+        if width is None:
+            width = self._top.winfo_width()
+            if width <= 1:
+                return
+        self.update_idletasks()
+        left = (
+            self.shot_label.winfo_reqwidth()
+            + 12
+            + self.time_label.winfo_reqwidth()
+            + 24
+            + self.meta_label.winfo_reqwidth()
+        )
+        need = left + self._TOP_GAP + self._session_unit.winfo_reqwidth()
+        second = need > width
+        if second == self._session_on_second_row:
+            return
+        self._session_on_second_row = second
+        self._session_unit.pack_forget()
+        if second:
+            self._top2.pack(fill="x", pady=(0, 8), after=self._top)
+            self._session_unit.pack(in_=self._top2, side="right")
+        else:
+            self._top2.pack_forget()
+            self._session_unit.pack(in_=self._top, side="right")
 
     # ---------------------------------------------------------------- channels
 
@@ -171,6 +220,8 @@ class HeaderPanel(ttk.Frame):
                 + f"    {len(channels)} ch"
             )
         )
+        # メタ情報の長さが変わると上段の収まりも変わる
+        self._reflow_top()
 
         for pos, ch in enumerate(channels):
             value = latest.value(metric_key, ch)
