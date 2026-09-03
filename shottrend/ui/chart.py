@@ -105,6 +105,21 @@ class ShotChart(tk.Canvas):
         self._resize_job = None
         self.redraw()
 
+    def destroy(self) -> None:
+        """予約中の再描画を取り消してから消える。
+
+        言語の切替で画面を丸ごと組み直すので、ここで取り消さないと死んだ
+        ウィジェットに対して `redraw()` が走る。CLAUDE.md の「`after()` の
+        予約は必ず `after_cancel`」がこの経路にも要る。
+        """
+        if self._resize_job is not None:
+            try:
+                self.after_cancel(self._resize_job)
+            except tk.TclError:
+                pass
+            self._resize_job = None
+        super().destroy()
+
     # ------------------------------------------------------------------ layout
 
     def _plot_box(self) -> tuple[int, int, int, int]:

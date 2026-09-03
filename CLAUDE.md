@@ -44,6 +44,10 @@
 
 **訳さないもの**: 単位（MPa, MPa·s, s）、`CH01` などの ch 名、テーブル列見出しの `Shot` / `Time` / `interval`（MPS08B の CSV の列名そのもの＝データ源の識別子）、カード内の `max/min/avg/σ`。
 
+**言語の切替は画面を丸ごと組み直す**（`MonitorApp._rebuild_ui()`）。ウィジェットごとに `retranslate()` を配る方式は採らない。`control_bar._group()` や `header_panel` の見出しは参照を保持しない匿名ラベルで、その方式だと「ラベルを足したとき retranslate に足し忘れる」バグが構造的に残るため。**`root` の直下にウィジェットを足したら `_rebuild_ui()` の destroy 対象にも足すこと**（`tests/test_i18n.py` が対応を見張る）。`ttk.Style` はフォントのタプルを生成時に取り込むので、切替のたびに `apply_ttk_theme()` を通し直す。
+
+**ウィンドウの最小幅は決め打ちにしない。** 英語のラベルは日本語より 1 割以上横に長く、`1000px` ではコントロールバーが 1 行に収まらない。`_apply_min_size()` が組み上がったバーの要求幅を測って下限にする。
+
 **絶対パスを埋め込まない。** MMS_DATA の場所は `config.json` にあり GUI から変更できる。開発中に実際にユーザーがアプリ一式を Desktop から Documents へ移動した。
 
 **フォルダ名で並べ替えない。** 最新セッションの判定は CSV の mtime のみ。`separate_20260219` / `_20260828` / `DefaultFile001_20260216` が実在し、同日 2 フォルダ併存もある。

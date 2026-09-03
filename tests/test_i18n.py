@@ -197,10 +197,46 @@ def test_hint_is_assembled_from_menu_labels():
     """
     hint = i18n.t(
         "msg.hint_choose_dir",
-        menu=i18n.t("menu.file"),
-        item=i18n.t("menu.choose_dir"),
+        menu=i18n.Ref("menu.file"),
+        item=i18n.Ref("menu.choose_dir"),
     )
     assert hint == "ファイル > MMS_DATA フォルダを選ぶ"
+
+
+def test_reference_parameters_are_resolved_at_format_time():
+    """`Ref` のパラメータは、渡した時点ではなく整形の時点の言語で引かれる。
+
+    状態帯の案内文はパラメータごと `_last_msg_params` に残り、言語を
+    切り替えたあとの描き直しでも同じものが使われる。訳文を先に焼き込むと
+    英語の画面に日本語の案内が次のポーリング（最大 60 秒）まで居座る。
+    """
+    params = {"menu": i18n.Ref("menu.file"), "item": i18n.Ref("menu.choose_dir")}
+    assert i18n.t("msg.hint_choose_dir", **params) == "ファイル > MMS_DATA フォルダを選ぶ"
+
+    i18n.set_language("en")
+    # 同じ params をそのまま使い回す（アプリと同じ持ち方）
+    assert i18n.t("msg.hint_choose_dir", **params) == "File > Choose MMS_DATA folder"
+
+
+def test_status_hint_parameters_are_not_translated_in_advance():
+    """アプリ側が `Ref` を渡している（`t()` の戻り値を渡していない）。
+
+    `_tick_once()` で訳してしまうと上のテストが守っている性質が意味を失う。
+    ここは呼び出し側の書き方の問題なので、ソースで縛る。
+    """
+    from shottrend.ui import app as app_module
+
+    tick = _function(app_module, "_tick_once")
+    refs = {
+        node.args[0].value
+        for node in ast.walk(tick)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "Ref"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+    }
+    assert refs == {"menu.file", "menu.choose_dir"}
 
 
 def test_about_lines_keep_their_values():
@@ -315,3 +351,114 @@ def test_parse_locale_gives_up_quietly(raw):
 
 def test_detect_language_falls_back_when_unreadable():
     assert i18n.detect_language("fr_FR") == i18n.DEFAULT_LANG
+
+
+# ------------------------------------------------------------ 言語切替の配線
+
+
+def _function(module, name: str) -> ast.FunctionDef:
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"{module.__name__} に {name}() が無い")
+
+
+def _self_attr(node) -> str | None:
+    """`self.X` なら X、そうでなければ None。"""
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        if node.value.id == "self":
+            return node.attr
+    return None
+
+
+def test_root_level_widgets_are_all_destroyed_on_rebuild():
+    """`root` に直接置いたウィジェットは、作り直しの前に全部捨てられる。
+
+    言語切替は画面を丸ごと組み直す方式なので、捨て漏れがあると同じ場所に
+    ウィジェットが二重に積まれる。`_build_layout()` にパネルを 1 枚足した
+    ときの「destroy リストに足し忘れ」がこの手の事故の典型で、日本語のまま
+    使っている限り誰も気づかない。
+    """
+    from shottrend.ui import app as app_module
+
+    build = _function(app_module, "_build_layout")
+    rebuild = _function(app_module, "_rebuild_ui")
+
+    created = set()
+    for node in ast.walk(build):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Call):
+            continue
+        name = _self_attr(node.targets[0])
+        args = node.value.args
+        # 第 1 引数が self.root のものだけ = root 直下に置かれるウィジェット
+        if name and args and _self_attr(args[0]) == "root":
+            created.add(name)
+    assert created, "_build_layout() から root 直下のウィジェットが読み取れない"
+
+    destroyed = set()
+    for node in ast.walk(rebuild):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "destroy":
+                name = _self_attr(node.func.value)
+                if name:
+                    destroyed.add(name)
+        elif isinstance(node, ast.Tuple | ast.List):
+            destroyed |= {n for n in (_self_attr(e) for e in node.elts) if n}
+
+    missing = created - destroyed
+    assert not missing, f"_rebuild_ui() が捨て損ねている: {sorted(missing)}"
+
+
+def test_language_menu_is_wired_to_the_rebuild():
+    """メニューから `_on_language` が呼べて、そこから画面が組み直される。"""
+    from shottrend.ui import app as app_module
+
+    build_menu = _function(app_module, "_build_menu")
+    labels = {
+        node.func.attr
+        for node in ast.walk(build_menu)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "add_radiobutton" in labels
+
+    on_language = _function(app_module, "_on_language")
+    called = {
+        node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+        for node in ast.walk(on_language)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute | ast.Name)
+    }
+    # 文言・フォント・ttk スタイル・画面、この 4 つが揃わないと切り替わらない
+    assert {"set_language", "set_language_font", "apply_ttk_theme", "_rebuild_ui"} <= called
+
+
+def test_language_variable_is_held_on_the_instance():
+    """`tk.StringVar` を self に持つ。ローカルだと GC で選択マークが消える。"""
+    from shottrend.ui import app as app_module
+
+    build_menu = _function(app_module, "_build_menu")
+    held = {
+        _self_attr(node.targets[0])
+        for node in ast.walk(build_menu)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and getattr(node.value.func, "attr", "") == "StringVar"
+    }
+    assert held - {None}, "StringVar がインスタンスに保持されていない"
+
+
+def test_chart_cancels_its_pending_redraw_when_destroyed():
+    """`ShotChart.destroy()` が `after()` の予約を取り消す。
+
+    画面を作り直す方式にしたので、リサイズ debounce の予約が生き残ると
+    死んだウィジェットに `redraw()` が飛ぶ。
+    """
+    from shottrend.ui import chart as chart_module
+
+    destroy = _function(chart_module, "destroy")
+    called = {
+        node.func.attr
+        for node in ast.walk(destroy)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "after_cancel" in called

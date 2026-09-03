@@ -50,6 +50,18 @@ py -3.12 app.pyw
 
 本体アプリと同時に動かして問題ない。計測中でもファイルは読める（本体は `FileShare.ReadWrite` で開いている）。
 
+### 表示言語
+
+メニューの「言語 / Language」から選ぶ。選んだ瞬間に画面を組み直すので、再起動は要らない。
+選択は `config.json` に残る。初回は OS の表示言語から推測し、判別できなければ日本語。
+
+測定に関わる用語（項目名など）は MPS08B 本体アプリ（PPSB v1.3.0.5）の表記に合わせてある。
+本体と違う言葉で同じ値を呼ぶと現場で混乱するため。単位（`MPa` / `MPa·s` / `s`）、`CH01` などの
+ch 名、テーブルの `Shot` / `Time` / `interval`（MPS08B の CSV の列名そのもの）は訳さない。
+
+英語のラベルは日本語より横に長いので、**ウィンドウの最小幅は言語によって変わる**
+（コントロールバーが 1 行に収まる幅を実測して決める）。
+
 ### 画面
 
 上から順に:
@@ -116,7 +128,7 @@ python tools/fake_writer.py --root /tmp/fake_mms --interval 2 --channels 8
 | `metric` | `"peak"` | 表示項目。上の表の「CSV の列」の `CHnn_` を除いた部分 |
 | `composite_mode` | `"max"` | 合成値。`max` / `min` / `avg` / `diff` |
 | `show_delta_columns` | `false` | テーブルに差分列を出すか |
-| `language` | `""` | 表示言語。`""` は OS の表示言語から自動判別 |
+| `language` | `""` | 表示言語。`""` は OS の表示言語から自動判別。`ja` / `en` |
 | `geometry` | `"1280x880+30+16"` | ウィンドウの大きさと位置。終了時に保存 |
 
 ## データ源
@@ -149,7 +161,7 @@ MPS08B が書く日次サマリ CSV だけを読む。生波形（`ALL_*.csv`、
 app.pyw              エントリポイント。ログ設定と例外の捕捉
 shottrend/
   core/     ← Tk を一切 import しない層。pytest で全部検証できる
-    metrics.py    表示項目の一覧（表示名・単位・桁数の単一ソース）
+    metrics.py    表示項目の一覧（単位・桁数の単一ソース。表示名は i18n）
     models.py     Shot / Session
     config.py     設定の読み書き（原子的書き込み）
     discovery.py  mtime による最新セッション判定
@@ -159,6 +171,7 @@ shottrend/
     monitor.py    ポーリング 1 回分の判断
     version.py    バージョン番号
   ui/       ← tkinter。core を呼ぶだけ
+  i18n/     ← 画面に出す文言。言語ごとの dict モジュール
 tools/
   fake_writer.py  追記シミュレータ
   build.py        配布物の作成（Windows）
@@ -208,6 +221,7 @@ GitHub Actions（`release.yml`）が Windows で lint・テスト・ビルドを
 - コード署名していないので初回起動で SmartScreen が出る
 - 単体 exe は起動時に一時フォルダへ展開するため、初回起動に数秒かかる
 - 積分系の単位 `MPa·s` は本体の表示で確認していない（推定）
+- 対応言語は日本語と英語のみ（繁体中文・简体中文・한국어は用意中）
 
 ## ライセンス
 

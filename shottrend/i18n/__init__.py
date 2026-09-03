@@ -26,7 +26,7 @@ import os
 
 from shottrend.core.config import LANGUAGES
 
-from . import ja
+from . import en, ja
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ DEFAULT_LANG = "ja"
 #: （ずれていないことは tests/test_i18n.py が見張る）。
 CATALOGS: dict[str, dict[str, str]] = {
     "ja": ja.TEXTS,
+    "en": en.TEXTS,
 }
 
 #: メニューに出す言語名。自称名（endonym）を固定で出す。全言語 × 全言語の
@@ -51,6 +52,20 @@ ENDONYMS = {
 }
 
 _current = DEFAULT_LANG
+
+
+class Ref(str):
+    """パラメータとして渡す「別の文言への参照」。
+
+    `t("msg.hint_choose_dir", menu=Ref("menu.file"))` のように使う。`t()` が
+    整形の直前に引き直すので、**訳文を先に作って持ち回らずに済む**。
+
+    先に訳して渡すと、その文字列を保持している間に言語が変わったときに古い
+    言語のまま残る。状態帯の案内文は次のポーリング（最大 60 秒）まで書き
+    換わらないので、英語に切り替えたのに `ファイル > ...` と出続けた。
+    """
+
+    __slots__ = ()
 
 
 def available() -> tuple[str, ...]:
@@ -88,6 +103,7 @@ def t(key: str, /, **params: object) -> str:
         text = ja.TEXTS.get(key, key)
     if not params:
         return text
+    params = {k: t(v) if isinstance(v, Ref) else v for k, v in params.items()}
     try:
         return text.format(**params)
     except Exception:
