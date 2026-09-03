@@ -26,8 +26,9 @@ from shottrend.core.monitor import (
 )
 from shottrend.core.stats import window_stats
 from shottrend.core.version import __version__
+from shottrend.i18n import available as available_languages
 from shottrend.i18n import current as current_language
-from shottrend.i18n import detect_language, set_language, t
+from shottrend.i18n import detect_language, endonym, set_language, t
 
 from . import theme
 from .chart import ShotChart
@@ -40,6 +41,15 @@ log = logging.getLogger(__name__)
 
 #: 状態帯の色。本体アプリの「モニタモード」帯の色彩言語に合わせる。
 #: 文言は言語で変わるので持たない（`status.<状態>` を引く）。
+#: ウィンドウの最小サイズ。幅は「コントロールバーが 1 行に収まること」で
+#: 決まるので下限でしかない（実際の下限は `_apply_min_size()` が測る）。
+MIN_WIDTH = 1000
+MIN_HEIGHT = 700
+
+#: コントロールバーの右端に残す余白。0 にすると最後のチェックボックスが
+#: ウィンドウの枠にぴったり張り付く。
+CONTROLS_MARGIN = 24
+
 _STATUS_COLORS = {
     STATUS_RUNNING: (theme.ACCENT_BAR, "#00323C"),
     STATUS_IDLE: ("#FFD54F", "#4A3800"),
@@ -64,11 +74,17 @@ class MonitorApp:
         self._after_id: str | None = None
         self._ticks = 0
         self._sessions: list[Session] = []
+        # 言語を切り替えると状態帯も作り直しになる。ポーリングを待たずに
+        # 描き直せるよう、最後に出した状態を覚えておく
+        self._last_status = STATUS_IDLE
+        self._last_msg_key = ""
+        self._last_msg_params: dict = {}
+        self._menubar: tk.Menu | None = None
 
         root.title(t("app.title"))
         root.configure(background=theme.BG)
         root.geometry(self.cfg.geometry)
-        root.minsize(1000, 700)
+        root.minsize(MIN_WIDTH, MIN_HEIGHT)
 
         # 言語を切り替えるとフォントが変わり、ttk のスタイルを作り直す必要が
         # あるので参照を持っておく（ttk はスタイル生成時にフォントを取り込む）
@@ -101,7 +117,28 @@ class MonitorApp:
         filemenu.add_separator()
         filemenu.add_command(label=t("menu.quit"), command=self.on_close)
         menubar.add_cascade(label=t("menu.file"), menu=filemenu)
+
+        langmenu = tk.Menu(menubar, tearoff=0)
+        # 変数は self に持つ。ローカルに置くと GC されて選択マークが消える
+        # （tkinter の Variable は Python 側の参照が生存条件）
+        self._lang_var = tk.StringVar(value=current_language())
+        for code in available_languages():
+            # 言語名は自称名を固定で出す。全言語 × 全言語を訳す意味は無いし、
+            # 「今の UI が読めないから変えたい」人には自称名が一番早い
+            langmenu.add_radiobutton(
+                label=endonym(code),
+                value=code,
+                variable=self._lang_var,
+                command=lambda c=code: self._on_language(c),
+            )
+        menubar.add_cascade(label=t("menu.language"), menu=langmenu)
+
         self.root.config(menu=menubar)
+        # 差し替えてから前のメニューを捨てる。先に捨てるとルートが一瞬
+        # 死んだウィジェットを指す
+        if self._menubar is not None:
+            self._menubar.destroy()
+        self._menubar = menubar
 
     def show_about(self) -> None:
         messagebox.showinfo(
@@ -134,8 +171,9 @@ class MonitorApp:
         )
         self.controls.pack(fill="x")
 
-        body = ttk.Frame(self.root, style="TFrame")
-        body.pack(fill="both", expand=True, padx=14, pady=(0, 12))
+        self._body = ttk.Frame(self.root, style="TFrame")
+        self._body.pack(fill="both", expand=True, padx=14, pady=(0, 12))
+        body = self._body
 
         # 先に下段（テーブル）の領域を確保してから、残り全部をグラフに与える。
         # 逆順に pack すると、ウィンドウが縮んだときにテーブルが先に切られる。
@@ -148,6 +186,20 @@ class MonitorApp:
         chart_frame.pack(side="top", fill="both", expand=True)
         self.chart = ShotChart(chart_frame)
         self.chart.pack(fill="both", expand=True, padx=1, pady=1)
+
+        self._apply_min_size()
+
+    def _apply_min_size(self) -> None:
+        """コントロールバーが 1 行に収まる幅をウィンドウの下限にする。
+
+        英語のラベルは日本語より 1 割以上横に長く、`1000px` では合成値の
+        最後の 1 つと差分列のチェックボックスが枠の外に出る。言語ごとに
+        最小幅の表を持つのではなく、組み上がったバーの要求幅を測って決める。
+        コントロールを 1 つ足したときも自動で追随する。
+        """
+        self.root.update_idletasks()
+        need = self.controls.winfo_reqwidth() + CONTROLS_MARGIN
+        self.root.minsize(max(MIN_WIDTH, need), MIN_HEIGHT)
 
     # ------------------------------------------------------------------- data
 
@@ -219,6 +271,9 @@ class MonitorApp:
     def _set_status(
         self, status: str, message_key: str = "", message_params: dict | None = None
     ) -> None:
+        self._last_status = status
+        self._last_msg_key = message_key
+        self._last_msg_params = dict(message_params or {})
         if status in _STATUS_COLORS:
             color, fg = _STATUS_COLORS[status]
             text = t(f"status.{status}")
@@ -266,6 +321,41 @@ class MonitorApp:
     def _on_composite(self, mode) -> None:
         self.cfg.composite_mode = str(mode)
         save_config(self.cfg)
+        self._refresh_views()
+
+    def _on_language(self, code: str) -> None:
+        if code == current_language() and code == self.cfg.language:
+            return
+        self.cfg.language = code
+        save_config(self.cfg)
+        set_language(code)
+        theme.set_language_font(current_language(), tkfont.families(self.root))
+        # ttk はスタイルを組んだ時点でフォントのタプルを取り込むので、
+        # 字体を替えたら作り直す
+        theme.apply_ttk_theme(self.style)
+        self._rebuild_ui()
+
+    def _rebuild_ui(self) -> None:
+        """文言とフォントが変わったので画面を丸ごと組み直す。
+
+        ウィジェットごとに `retranslate()` を配る案は採らない。`control_bar`
+        のグループ見出しや `header_panel` の「表示中のデータ」は参照を保持
+        しない匿名ラベルで、その方式だと「ラベルを足したとき retranslate に
+        足し忘れる」バグが構造的に残る。レビューでは見つからず現場で気づく
+        たちの悪さなので、起こりえない作りにする。
+
+        `_build_layout()` は `self.cfg` からしか状態を読まないので、
+        作り直した結果は元と等価になる。
+        """
+        self.root.title(t("app.title"))
+        self._build_menu()
+        for w in (self.status, self.header, self.controls, self._body):
+            w.destroy()
+        self._build_layout()
+        # 作り直した先は空なので、覚えていた状態と手持ちのデータで埋め直す。
+        # ここで再スキャンはしない（言語を変えただけでディスクを触らない）
+        self._set_status(self._last_status, self._last_msg_key, self._last_msg_params)
+        self.header.set_sessions(self._sessions, self.service.session)
         self._refresh_views()
 
     def _on_delta(self, show) -> None:

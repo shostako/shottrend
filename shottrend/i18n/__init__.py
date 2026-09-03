@@ -26,7 +26,7 @@ import os
 
 from shottrend.core.config import LANGUAGES
 
-from . import ja
+from . import en, ja
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ DEFAULT_LANG = "ja"
 #: （ずれていないことは tests/test_i18n.py が見張る）。
 CATALOGS: dict[str, dict[str, str]] = {
     "ja": ja.TEXTS,
+    "en": en.TEXTS,
 }
 
 #: メニューに出す言語名。自称名（endonym）を固定で出す。全言語 × 全言語の

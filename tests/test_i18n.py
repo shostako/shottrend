@@ -315,3 +315,114 @@ def test_parse_locale_gives_up_quietly(raw):
 
 def test_detect_language_falls_back_when_unreadable():
     assert i18n.detect_language("fr_FR") == i18n.DEFAULT_LANG
+
+
+# ------------------------------------------------------------ 言語切替の配線
+
+
+def _function(module, name: str) -> ast.FunctionDef:
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"{module.__name__} に {name}() が無い")
+
+
+def _self_attr(node) -> str | None:
+    """`self.X` なら X、そうでなければ None。"""
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        if node.value.id == "self":
+            return node.attr
+    return None
+
+
+def test_root_level_widgets_are_all_destroyed_on_rebuild():
+    """`root` に直接置いたウィジェットは、作り直しの前に全部捨てられる。
+
+    言語切替は画面を丸ごと組み直す方式なので、捨て漏れがあると同じ場所に
+    ウィジェットが二重に積まれる。`_build_layout()` にパネルを 1 枚足した
+    ときの「destroy リストに足し忘れ」がこの手の事故の典型で、日本語のまま
+    使っている限り誰も気づかない。
+    """
+    from shottrend.ui import app as app_module
+
+    build = _function(app_module, "_build_layout")
+    rebuild = _function(app_module, "_rebuild_ui")
+
+    created = set()
+    for node in ast.walk(build):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Call):
+            continue
+        name = _self_attr(node.targets[0])
+        args = node.value.args
+        # 第 1 引数が self.root のものだけ = root 直下に置かれるウィジェット
+        if name and args and _self_attr(args[0]) == "root":
+            created.add(name)
+    assert created, "_build_layout() から root 直下のウィジェットが読み取れない"
+
+    destroyed = set()
+    for node in ast.walk(rebuild):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "destroy":
+                name = _self_attr(node.func.value)
+                if name:
+                    destroyed.add(name)
+        elif isinstance(node, ast.Tuple | ast.List):
+            destroyed |= {n for n in (_self_attr(e) for e in node.elts) if n}
+
+    missing = created - destroyed
+    assert not missing, f"_rebuild_ui() が捨て損ねている: {sorted(missing)}"
+
+
+def test_language_menu_is_wired_to_the_rebuild():
+    """メニューから `_on_language` が呼べて、そこから画面が組み直される。"""
+    from shottrend.ui import app as app_module
+
+    build_menu = _function(app_module, "_build_menu")
+    labels = {
+        node.func.attr
+        for node in ast.walk(build_menu)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "add_radiobutton" in labels
+
+    on_language = _function(app_module, "_on_language")
+    called = {
+        node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+        for node in ast.walk(on_language)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute | ast.Name)
+    }
+    # 文言・フォント・ttk スタイル・画面、この 4 つが揃わないと切り替わらない
+    assert {"set_language", "set_language_font", "apply_ttk_theme", "_rebuild_ui"} <= called
+
+
+def test_language_variable_is_held_on_the_instance():
+    """`tk.StringVar` を self に持つ。ローカルだと GC で選択マークが消える。"""
+    from shottrend.ui import app as app_module
+
+    build_menu = _function(app_module, "_build_menu")
+    held = {
+        _self_attr(node.targets[0])
+        for node in ast.walk(build_menu)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and getattr(node.value.func, "attr", "") == "StringVar"
+    }
+    assert held - {None}, "StringVar がインスタンスに保持されていない"
+
+
+def test_chart_cancels_its_pending_redraw_when_destroyed():
+    """`ShotChart.destroy()` が `after()` の予約を取り消す。
+
+    画面を作り直す方式にしたので、リサイズ debounce の予約が生き残ると
+    死んだウィジェットに `redraw()` が飛ぶ。
+    """
+    from shottrend.ui import chart as chart_module
+
+    destroy = _function(chart_module, "destroy")
+    called = {
+        node.func.attr
+        for node in ast.walk(destroy)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "after_cancel" in called
