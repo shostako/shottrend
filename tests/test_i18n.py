@@ -250,6 +250,29 @@ def test_set_language_font_leaves_monospace_alone():
         theme.set_language_font("ja", {"Yu Gothic UI"})
 
 
+def test_app_resolves_the_font_before_styling():
+    """起動経路が `set_language_font()` を呼ぶ。
+
+    これを呼び忘れると `resolve_ui_font()` とフォールバック候補が丸ごと死に、
+    `Yu Gothic UI` の無い環境で代替が選ばれない。しかもウィジェットの幅を
+    「実際には使われないフォント」で測ることになる。テストは通るのに機能だけ
+    死ぬので、呼び出しの実在をここで縛る。
+
+    呼ぶ順序（スタイルを組む前）は目で見るしかないが、まず呼ばれていることを
+    保証する。
+    """
+    from shottrend.ui import app as app_module
+
+    tree = ast.parse(Path(app_module.__file__).read_text(encoding="utf-8"))
+    called = {
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "set_language_font" in called
+    assert "apply_ttk_theme" in called
+
+
 def test_every_language_has_font_candidates():
     """言語を足したらフォント候補も足す。片方だけ増えると豆腐になる。"""
     from shottrend.ui import theme
