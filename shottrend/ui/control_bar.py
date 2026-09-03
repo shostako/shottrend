@@ -24,7 +24,7 @@ from shottrend.core.stats import COMPOSITE_MODES
 from shottrend.i18n import composite_label, metric_label, t
 
 from . import theme
-from .flow import pack_rows, single_row_width
+from .flow import pack_rows
 from .widgets import SegmentedControl
 
 #: バーの左右の内側余白（`padding` の左右）。折り返し判定の使える幅を出すのに使う
@@ -125,10 +125,6 @@ class ControlBar(ttk.Frame):
     def min_width(self) -> int:
         """このバーが必要とする最小幅。最も広い単位が 1 行に収まればよい。"""
         return max(self._unit_widths(), default=0) + PAD_X * 2
-
-    def single_row_width(self) -> int:
-        """全部を 1 行に並べたときの幅。"""
-        return single_row_width(self._unit_widths(), GAP) + PAD_X * 2
 
     def _place(self, rows: list[list[int]]) -> None:
         if rows == self._rows:

@@ -25,12 +25,13 @@ from shottrend.core.stats import ChannelStats, composite, window_stats
 from shottrend.i18n import composite_label, t
 
 from . import theme
+from .flow import pack_rows
 from .widgets import ChannelCard, CompactChannelCard
 
 #: これを超える ch 数になったら小型カードに切り替える
 LARGE_CARD_LIMIT = 3
-#: 小型カードを 1 段に並べる枚数
-COMPACT_PER_ROW = 5
+#: 小型カード同士の間隔
+COMPACT_GAP = 8
 
 
 class HeaderPanel(ttk.Frame):
@@ -83,6 +84,8 @@ class HeaderPanel(ttk.Frame):
 
         self._card_area = ttk.Frame(self, style="TFrame")
         self._card_area.pack(fill="x")
+        self._compact_rows: list[list[int]] = []
+        self._card_area.bind("<Configure>", self._on_cards_configure)
 
     # ------------------------------------------------------------- top row
 
@@ -148,16 +151,13 @@ class HeaderPanel(ttk.Frame):
         # グループが示しているので、カード側で繰り返すと幅を食うだけになる
         specs.append((composite_label(composite_mode), theme.ACCENT, theme.FG))
 
+        self._compact_rows = []
         for pos, (name, color, text_color) in enumerate(specs):
             if self._compact:
+                # 配置は _place_compact() が幅から決める。固定の 5 列だと 4ch＋合成値
+                # で 978px を要求し、ハーフスナップの 960px で右端が切れる
                 card = CompactChannelCard(
                     self._card_area, name, color, text_color, unit=m.unit, digits=m.digits
-                )
-                card.grid(
-                    row=pos // COMPACT_PER_ROW,
-                    column=pos % COMPACT_PER_ROW,
-                    padx=(0, 8),
-                    pady=(0, 6),
                 )
             else:
                 # 大型カードは幅を均等に分け合う。固定幅だと最小ウィンドウ幅で
@@ -174,6 +174,36 @@ class HeaderPanel(ttk.Frame):
             else:
                 self._composite_card = card
         self._grid_columns = max(self._grid_columns, len(specs))
+        if self._compact:
+            self._place_compact()
+
+    def _all_cards(self) -> list[tk.Canvas]:
+        cards = list(self._cards)
+        if self._composite_card is not None:
+            cards.append(self._composite_card)
+        return cards
+
+    def _on_cards_configure(self, event: tk.Event) -> None:
+        if event.widget is self._card_area and event.width > 1 and self._compact:
+            self._place_compact(event.width)
+
+    def _place_compact(self, width: int | None = None) -> None:
+        """小型カードを、幅に収まる枚数ずつ段に分けて並べる。"""
+        if width is None:
+            width = self._card_area.winfo_width()
+        cards = self._all_cards()
+        # 配置前（幅 1）は 1 段に置いておき、実際の幅が分かった <Configure> で組み直す
+        avail = width if width > 1 else 10**9
+        rows = pack_rows([c.winfo_reqwidth() for c in cards], COMPACT_GAP, avail)
+        if rows == self._compact_rows:
+            return
+        self._compact_rows = rows
+        for c in cards:
+            c.grid_forget()
+        for r, row in enumerate(rows):
+            for col, i in enumerate(row):
+                cards[i].grid(row=r, column=col, padx=(0, COMPACT_GAP), pady=(0, 6))
+        self._grid_columns = max(self._grid_columns, max(len(row) for row in rows))
 
     # ------------------------------------------------------------------ update
 
