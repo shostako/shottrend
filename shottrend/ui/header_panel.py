@@ -21,7 +21,8 @@ from tkinter import ttk
 
 from shottrend.core.metrics import metric as metric_of
 from shottrend.core.models import Session, Shot
-from shottrend.core.stats import COMPOSITE_LABELS, ChannelStats, composite, window_stats
+from shottrend.core.stats import ChannelStats, composite, window_stats
+from shottrend.i18n import composite_label, t
 
 from . import theme
 from .widgets import ChannelCard, CompactChannelCard
@@ -63,7 +64,7 @@ class HeaderPanel(ttk.Frame):
         self.session_box = ttk.Combobox(top, state="readonly", width=28, font=theme.F_SMALL)
         self.session_box.pack(side="right")
         self.session_box.bind("<<ComboboxSelected>>", self._session_selected)
-        ttk.Label(top, text="表示中のデータ", style="MutedBg.TLabel").pack(
+        ttk.Label(top, text=t("header.session"), style="MutedBg.TLabel").pack(
             side="right", padx=(0, 8)
         )
 
@@ -96,7 +97,7 @@ class HeaderPanel(ttk.Frame):
         # 合成値のカード。ch の色と混ざらないよう本体のアクセント色を使う。
         # 見出しは種類だけ（「最大」等）。何の値かはコントロールバーの「合成値」
         # グループが示しているので、カード側で繰り返すと幅を食うだけになる
-        specs.append((COMPOSITE_LABELS.get(composite_mode, ""), theme.ACCENT, theme.FG))
+        specs.append((composite_label(composite_mode), theme.ACCENT, theme.FG))
 
         for pos, (name, color, text_color) in enumerate(specs):
             if self._compact:
@@ -164,9 +165,10 @@ class HeaderPanel(ttk.Frame):
         self.time_label.config(text=latest.dt.strftime("%Y/%m/%d  %H:%M:%S"))
         self.meta_label.config(
             text=(
-                f"サイクル {latest.interval:.2f} s    "
-                f"表示 {len(shots)} / {total} 件    "
-                f"{len(channels)} ch"
+                t("header.cycle", value=f"{latest.interval:.2f}")
+                + "    "
+                + t("header.showing", shown=len(shots), total=total)
+                + f"    {len(channels)} ch"
             )
         )
 

@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from .metrics import DEFAULT_METRIC, METRIC_KEYS
+from .stats import COMPOSITE_MODES
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +26,11 @@ CONFIG_FILENAME = "config.json"
 
 WINDOW_SIZES = (10, 50, 100)
 CHART_KINDS = ("line", "bar")
+
+#: 対応する表示言語。繁体／簡体は地域サブタグ (zh-TW) ではなくスクリプト
+#: サブタグ (zh-Hant) で区別する。設定値の "" は「OS から推測する」の意味で、
+#: 不正値ではない。
+LANGUAGES = ("ja", "en", "zh-Hant", "zh-Hans", "ko")
 
 
 def app_dir() -> Path:
@@ -56,6 +62,7 @@ class AppConfig:
     composite_mode: str = "max"
     show_delta_columns: bool = False
     geometry: str = "1280x880+30+16"
+    language: str = ""
 
     def normalized(self) -> AppConfig:
         """不正な値を既定値に丸める。手で編集された config でも落ちないように。"""
@@ -65,8 +72,12 @@ class AppConfig:
             self.chart_kind = "line"
         if self.metric not in METRIC_KEYS:
             self.metric = DEFAULT_METRIC
-        if self.composite_mode not in ("max", "min", "avg", "diff"):
-            self.composite_mode = "max"
+        if self.composite_mode not in COMPOSITE_MODES:
+            self.composite_mode = COMPOSITE_MODES[0]
+        if self.language not in LANGUAGES:
+            # 未知のコードも "" に倒す。既定言語を決め打つより「自動」に
+            # 戻すほうが賢く振る舞う
+            self.language = ""
         self.poll_interval_ms = max(250, min(int(self.poll_interval_ms), 60_000))
         self.session_rescan_ticks = max(1, min(int(self.session_rescan_ticks), 600))
         self.show_delta_columns = bool(self.show_delta_columns)

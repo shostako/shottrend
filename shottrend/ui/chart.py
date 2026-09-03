@@ -17,6 +17,7 @@ from shottrend.core.history import find_gaps
 from shottrend.core.metrics import DEFAULT_METRIC
 from shottrend.core.metrics import metric as metric_of
 from shottrend.core.models import Shot
+from shottrend.i18n import t
 
 from . import theme
 
@@ -144,7 +145,7 @@ class ShotChart(tk.Canvas):
             self.create_text(
                 (left + right) // 2,
                 (top + bottom) // 2,
-                text="データなし",
+                text=t("chart.no_data"),
                 fill=theme.ON_PLOT_DIM,
                 font=theme.F_LABEL,
             )
@@ -262,7 +263,7 @@ class ShotChart(tk.Canvas):
             self.create_text(
                 x + 3,
                 top + 2 + row * GAP_LABEL_ROW_H,
-                text=f"{missing}欠",
+                text=t("chart.missing", count=missing),
                 anchor="nw",
                 fill=theme.ON_PLOT_DIM,
                 font=theme.F_SMALL,

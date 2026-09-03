@@ -116,6 +116,7 @@ python tools/fake_writer.py --root /tmp/fake_mms --interval 2 --channels 8
 | `metric` | `"peak"` | 表示項目。上の表の「CSV の列」の `CHnn_` を除いた部分 |
 | `composite_mode` | `"max"` | 合成値。`max` / `min` / `avg` / `diff` |
 | `show_delta_columns` | `false` | テーブルに差分列を出すか |
+| `language` | `""` | 表示言語。`""` は OS の表示言語から自動判別 |
 | `geometry` | `"1280x880+30+16"` | ウィンドウの大きさと位置。終了時に保存 |
 
 ## データ源

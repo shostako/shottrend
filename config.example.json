@@ -7,5 +7,6 @@
   "metric": "peak",
   "composite_mode": "max",
   "show_delta_columns": false,
+  "language": "",
   "geometry": "1280x880+30+16"
 }

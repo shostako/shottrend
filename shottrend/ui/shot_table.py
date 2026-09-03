@@ -16,7 +16,8 @@ from tkinter import ttk
 from shottrend.core.metrics import DEFAULT_METRIC
 from shottrend.core.metrics import metric as metric_of
 from shottrend.core.models import Shot
-from shottrend.core.stats import COMPOSITE_LABELS, composite
+from shottrend.core.stats import composite
+from shottrend.i18n import composite_label, t
 
 from . import theme
 
@@ -101,6 +102,9 @@ class ShotTable(ttk.Frame):
 
         ch 列の見出しに単位を付ける（本体アプリの `[MPa]` 表記に倣う）。
         どの項目を見ているかは、見出しの単位とコントロールバーで分かる。
+
+        `Shot` / `Time` / `interval` は訳さない。これらは MPS08B が書く CSV の
+        列名そのもので、単位記号と同じくデータ源の識別子だから。
         """
         unit = f" [{self._metric.unit}]"
         spec: list[tuple[str, str, int, str]] = [
@@ -112,9 +116,9 @@ class ShotTable(ttk.Frame):
             spec.append((f"ch{ch}", name + unit, 96, "e"))
             if self._show_delta:
                 spec.append((f"d{ch}", f"Δ{name}", 84, "e"))
-        spec.append(("comp", COMPOSITE_LABELS.get(self._composite_mode, "最大") + unit, 96, "e"))
+        spec.append(("comp", composite_label(self._composite_mode) + unit, 96, "e"))
         if self._show_delta and len(self._channels) >= 2:
-            spec.append(("spread", "ばらつき", 84, "e"))
+            spec.append(("spread", t("table.spread"), 84, "e"))
         spec.append(("interval", "interval", 84, "e"))
         spec.append((PAD_KEY, "", PAD_WIDTH, "center"))
         return spec

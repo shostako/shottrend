@@ -26,6 +26,28 @@ def test_unknown_keys_are_ignored(tmp_path):
     assert load_config(p).metric == "integral"
 
 
+def test_unknown_language_falls_back_to_auto(tmp_path):
+    """未知の言語コードは既定言語ではなく "" (= 自動) に倒す。"""
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"language": "fr"}), encoding="utf-8")
+    assert load_config(p).language == ""
+
+
+def test_language_round_trips(tmp_path):
+    p = tmp_path / "config.json"
+    save_config(AppConfig(language="zh-Hant"), p)
+    assert load_config(p).language == "zh-Hant"
+
+
+def test_config_without_language_key_is_read(tmp_path):
+    """language を知らない頃に書かれた config.json をそのまま読める。"""
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"metric": "integral", "window_size": 100}), encoding="utf-8")
+    cfg = load_config(p)
+    assert cfg.language == ""
+    assert cfg.metric == "integral"
+
+
 def test_config_with_utf8_bom_is_read(tmp_path):
     """メモ帳や PowerShell 5.1 が付ける BOM 付きでも読める。"""
     p = tmp_path / "config.json"

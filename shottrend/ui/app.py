@@ -25,6 +25,7 @@ from shottrend.core.monitor import (
 )
 from shottrend.core.stats import window_stats
 from shottrend.core.version import __version__
+from shottrend.i18n import detect_language, set_language, t
 
 from . import theme
 from .chart import ShotChart
@@ -35,15 +36,14 @@ from .widgets import StatusStrip
 
 log = logging.getLogger(__name__)
 
-TITLE = "ShotTrend — MPS08B 演算値トレンド"
-
-#: 状態帯の見え方。本体アプリの「モニタモード」帯の色彩言語に合わせる。
-_STATUS_STYLE = {
-    STATUS_RUNNING: ("監視中", theme.ACCENT_BAR, "#00323C"),
-    STATUS_IDLE: ("停止中", "#FFD54F", "#4A3800"),
-    STATUS_NODATA: ("データなし", "#D8DEE9", "#3A4552"),
-    STATUS_NOROOT: ("データフォルダ未設定", theme.ALERT_BAR, "#FFFFFF"),
-    STATUS_ERROR: ("読み取り異常", theme.ALERT_BAR, "#FFFFFF"),
+#: 状態帯の色。本体アプリの「モニタモード」帯の色彩言語に合わせる。
+#: 文言は言語で変わるので持たない（`status.<状態>` を引く）。
+_STATUS_COLORS = {
+    STATUS_RUNNING: (theme.ACCENT_BAR, "#00323C"),
+    STATUS_IDLE: ("#FFD54F", "#4A3800"),
+    STATUS_NODATA: ("#D8DEE9", "#3A4552"),
+    STATUS_NOROOT: (theme.ALERT_BAR, "#FFFFFF"),
+    STATUS_ERROR: (theme.ALERT_BAR, "#FFFFFF"),
 }
 
 
@@ -51,6 +51,9 @@ class MonitorApp:
     def __init__(self, root: tk.Tk, cfg: AppConfig | None = None) -> None:
         self.root = root
         self.cfg = cfg or load_config()
+        # 設定が空 (= 自動) なら OS の表示言語から推測する。翻訳表の無い言語に
+        # なっても set_language が既定へ倒すので、ここで検査はしない
+        set_language(self.cfg.language or detect_language())
 
         self.history = ShotHistory()
         self.scanner = DataRootScanner(Path(self.cfg.mms_data_dir or "."))
@@ -60,7 +63,7 @@ class MonitorApp:
         self._ticks = 0
         self._sessions: list[Session] = []
 
-        root.title(TITLE)
+        root.title(t("app.title"))
         root.configure(background=theme.BG)
         root.geometry(self.cfg.geometry)
         root.minsize(1000, 700)
@@ -84,21 +87,24 @@ class MonitorApp:
     def _build_menu(self) -> None:
         menubar = tk.Menu(self.root, tearoff=0)
         filemenu = tk.Menu(menubar, tearoff=0)
-        filemenu.add_command(label="MMS_DATA フォルダを選ぶ...", command=self.choose_data_dir)
+        # 末尾の "..." は「押すとダイアログが出る」を示す UI の記号なので訳さない
+        filemenu.add_command(label=t("menu.choose_dir") + "...", command=self.choose_data_dir)
         filemenu.add_separator()
-        filemenu.add_command(label="バージョン情報", command=self.show_about)
+        filemenu.add_command(label=t("menu.about"), command=self.show_about)
         filemenu.add_separator()
-        filemenu.add_command(label="終了", command=self.on_close)
-        menubar.add_cascade(label="ファイル", menu=filemenu)
+        filemenu.add_command(label=t("menu.quit"), command=self.on_close)
+        menubar.add_cascade(label=t("menu.file"), menu=filemenu)
         self.root.config(menu=menubar)
 
     def show_about(self) -> None:
         messagebox.showinfo(
             "ShotTrend",
             f"ShotTrend {__version__}\n"
-            "MPS08B (Mold Marshalling System) 演算値トレンドモニタ\n\n"
-            f"設定: {config_path()}\n"
-            f"データ: {self.cfg.mms_data_dir or '(未設定)'}",
+            + t("about.subtitle")
+            + "\n\n"
+            + t("about.config", path=config_path())
+            + "\n"
+            + t("about.data", path=self.cfg.mms_data_dir or t("about.unset")),
             parent=self.root,
         )
 
@@ -150,9 +156,7 @@ class MonitorApp:
 
     def choose_data_dir(self) -> None:
         initial = self.cfg.mms_data_dir or str(Path.home())
-        chosen = filedialog.askdirectory(
-            title="MPS08B の MMS_DATA フォルダを選んでください", initialdir=initial
-        )
+        chosen = filedialog.askdirectory(title=t("dialog.choose_dir_title"), initialdir=initial)
         if not chosen:
             return
         self.cfg.mms_data_dir = chosen
@@ -190,18 +194,30 @@ class MonitorApp:
 
     def _tick_once(self, *, rescan: bool) -> None:
         if not self._data_root_valid():
-            self._set_status(STATUS_NOROOT, "ファイル > MMS_DATA フォルダを選ぶ")
+            # 案内文はメニューの訳語から組み立てる。固定文にするとメニューだけ
+            # 訳を直したときに案内が古いまま取り残される
+            self._set_status(
+                STATUS_NOROOT,
+                "msg.hint_choose_dir",
+                {"menu": t("menu.file"), "item": t("menu.choose_dir")},
+            )
             return
         result = self.service.poll(now=datetime.now(), rescan=rescan)
         if result.session_changed:
             self._refresh_sessions()
         if result.new_shots or result.session_changed or result.reloaded:
             self._refresh_views()
-        self._set_status(result.status, result.message)
+        self._set_status(result.status, result.message_key, result.message_params)
 
-    def _set_status(self, status: str, message: str) -> None:
-        text, color, fg = _STATUS_STYLE.get(status, ("", theme.ACCENT_BAR, "#00323C"))
-        self.status.set_state(text, message, color, fg)
+    def _set_status(
+        self, status: str, message_key: str = "", message_params: dict | None = None
+    ) -> None:
+        if status in _STATUS_COLORS:
+            color, fg = _STATUS_COLORS[status]
+            text = t(f"status.{status}")
+        else:
+            color, fg, text = theme.ACCENT_BAR, "#00323C", ""
+        self.status.set_state(text, t(message_key, **(message_params or {})), color, fg)
 
     def _refresh_views(self) -> None:
         shots = self.history.tail(self.cfg.window_size)
