@@ -141,7 +141,10 @@ def _parse_resource_set(data: bytes, base: int) -> dict[str, tuple[int, int]]:
     for _ in range(type_count):
         length, pos = read_7bit(data, pos)
         pos += length
-    pos = (pos + 7) & ~7  # 名前ハッシュの手前で 8 バイト境界に揃う
+    # 名前ハッシュの手前で 8 バイト境界に揃う。境界は**ストリームの先頭から**
+    # 数えるので、ファイル上の絶対位置で丸めてはいけない。この exe には 8 の
+    # 倍数でない位置から始まるリソースセットが実在する（0x5d10ac など）
+    pos = base + ((pos - base + 7) & ~7)
 
     pos += 4 * count  # 名前のハッシュ。引くのに使うだけなので読み飛ばす
     positions = struct.unpack_from(f"<{count}i", data, pos)
