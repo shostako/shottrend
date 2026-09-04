@@ -49,6 +49,8 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    # exe のアイコン。tools/make_icon.py が assets/ に生成する
+    icon=str(ROOT / "assets" / "shottrend.ico"),
     disable_windowed_traceback=False,
     target_arch=None,
 )
