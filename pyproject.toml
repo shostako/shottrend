@@ -31,6 +31,9 @@ dev = [
 build = [
     "pyinstaller>=6.0",
 ]
+icon = [
+    "pillow>=10",
+]
 
 [tool.setuptools.packages.find]
 include = ["shottrend*"]

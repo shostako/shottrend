@@ -30,7 +30,7 @@ from shottrend.i18n import Ref, detect_language, endonym, set_language, t
 from shottrend.i18n import available as available_languages
 from shottrend.i18n import current as current_language
 
-from . import theme
+from . import icon_data, theme
 from .chart import ShotChart
 from .control_bar import ControlBar
 from .header_panel import HeaderPanel
@@ -80,6 +80,10 @@ class MonitorApp:
         self._menubar: tk.Menu | None = None
 
         root.title(t("app.title"))
+        # タイトルバー・タスクバー・Alt+Tab のアイコン。参照を持たないと GC で消える。
+        # exe 自体のアイコンは shottrend.spec の icon= で別に埋める（ファイルの顔）
+        self._icons = [tk.PhotoImage(data=png) for png in icon_data.SIZES]
+        root.iconphoto(True, *self._icons)
         root.configure(background=theme.BG)
         root.geometry(self.cfg.geometry)
         root.minsize(MIN_WIDTH, MIN_HEIGHT)

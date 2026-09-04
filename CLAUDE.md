@@ -26,6 +26,7 @@
 - 手元で組むときは WSL のツリーを Windows 側へコピーしてから（`robocopy` で `.git` `.venv` `logs` `build` `dist` `config.json` を除外）。UNC パス上で PyInstaller を回さない。ビルド用 venv は `%LOCALAPPDATA%\shottrend-build\venv`
 - リリースは `v<version>` タグの push だけ。`release.yml` が Windows で lint・テスト・ビルドを通し、CHANGELOG の該当節を本文に Release を作る。タグと `shottrend/core/version.py` が食い違うと止まる
 - バージョンは `shottrend/core/version.py` が単一ソース。上げるときは CHANGELOG に節を切る
+- アイコンは `tools/make_icon.py` が描く（Pillow、`pip install -e ".[icon]"`）。出力は `assets/shottrend.ico`（spec の `icon=` で exe に埋める）と `shottrend/ui/icon_data.py`（ウィンドウ用、base64 PNG を `PhotoImage(data=)` に渡す）。**`icon_data.py` を手で編集しない**。ウィンドウ用をファイルにしないのは datas と `sys._MEIPASS` 分岐を持ち込まないため
 - exe の動作確認は、**空のフォルダに exe と config.json だけ置いて起動**する（開発ツリーで起動すると隣の `config.json` や `logs/` を拾って frozen 判定の穴が見えない）。`logs/app.log` が exe の隣にできれば frozen 判定は効いている
 
 ### PyInstaller で踏んだ罠
