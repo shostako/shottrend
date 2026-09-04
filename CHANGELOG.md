@@ -5,6 +5,10 @@
 
 ## [未リリース]
 
+## [0.4.2] — 2026-09-04
+
+**アイコンが付いた。** exe のファイルアイコンも、タイトルバー・タスクバーのウィンドウアイコンも Python の羽根ではなくなった。
+
 ### 追加
 
 - **アプリのアイコン。** 紺地に横罫線、オレンジとシアンの 2ch 折れ線、左上に ShotTrend。
@@ -167,7 +171,8 @@ MPS08B のサマリ CSV を追従してショットごとのピーク圧力を�
   明るい地で読めない色（黄・シアン・緑）は文字用に沈めた版を別に持つ
 - 単体テスト 34 件。合成 CSV（104 列・CRLF・末尾カンマ）で不完全行・ヘッダ再挿入・トランケート復帰・mtime 判定を検証
 
-[未リリース]: https://github.com/shostako/shottrend/compare/v0.4.1...HEAD
+[未リリース]: https://github.com/shostako/shottrend/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/shostako/shottrend/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/shostako/shottrend/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/shostako/shottrend/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/shostako/shottrend/compare/v0.2.0...v0.3.0
