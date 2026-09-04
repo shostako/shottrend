@@ -5,6 +5,10 @@
 
 ## [未リリース]
 
+## [0.4.1] — 2026-09-04
+
+**Win+← / Win+→ できっちり半分になる。** コントロールバーとヘッダが幅に合わせて折り返す。
+
 ### 修正
 
 - **Win+← / Win+→ のハーフスナップで、窓が半分より広く止まっていた。** コントロールバーを
@@ -156,7 +160,8 @@ MPS08B のサマリ CSV を追従してショットごとのピーク圧力を�
   明るい地で読めない色（黄・シアン・緑）は文字用に沈めた版を別に持つ
 - 単体テスト 34 件。合成 CSV（104 列・CRLF・末尾カンマ）で不完全行・ヘッダ再挿入・トランケート復帰・mtime 判定を検証
 
-[未リリース]: https://github.com/shostako/shottrend/compare/v0.4.0...HEAD
+[未リリース]: https://github.com/shostako/shottrend/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/shostako/shottrend/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/shostako/shottrend/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/shostako/shottrend/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/shostako/shottrend/compare/v0.1.0...v0.2.0
