@@ -25,12 +25,13 @@ from shottrend.core.stats import ChannelStats, composite, window_stats
 from shottrend.i18n import composite_label, t
 
 from . import theme
+from .flow import pack_rows
 from .widgets import ChannelCard, CompactChannelCard
 
 #: これを超える ch 数になったら小型カードに切り替える
 LARGE_CARD_LIMIT = 3
-#: 小型カードを 1 段に並べる枚数
-COMPACT_PER_ROW = 5
+#: 小型カード同士の間隔
+COMPACT_GAP = 8
 
 
 class HeaderPanel(ttk.Frame):
@@ -49,6 +50,10 @@ class HeaderPanel(ttk.Frame):
 
         top = ttk.Frame(self, style="TFrame")
         top.pack(fill="x", pady=(0, 8))
+        self._top = top
+        # セッション選択が上段に入りきらないときの 2 段目。必要なときだけ pack する
+        self._top2 = ttk.Frame(self, style="TFrame")
+        self._session_on_second_row = False
 
         self.shot_label = ttk.Label(top, text="Shot ----", font=theme.F_BIG)
         self.shot_label.pack(side="left")
@@ -61,15 +66,62 @@ class HeaderPanel(ttk.Frame):
         self.meta_label = ttk.Label(top, text="", style="MutedBg.TLabel")
         self.meta_label.pack(side="left", padx=(24, 0))
 
-        self.session_box = ttk.Combobox(top, state="readonly", width=28, font=theme.F_SMALL)
+        # セッション選択は「ラベル＋ドロップダウン」で 1 単位。親を self にして
+        # おくと `pack(in_=...)` で上段と 2 段目のどちらにも置ける（tk はウィジェット
+        # の親を変えられないので、置き場所だけを変える）。ウィンドウを半分に
+        # すると上段に収まらず、左のメタ情報とぶつかっていた
+        self._session_unit = ttk.Frame(self, style="TFrame")
+        self.session_box = ttk.Combobox(
+            self._session_unit, state="readonly", width=28, font=theme.F_SMALL
+        )
         self.session_box.pack(side="right")
         self.session_box.bind("<<ComboboxSelected>>", self._session_selected)
-        ttk.Label(top, text=t("header.session"), style="MutedBg.TLabel").pack(
+        ttk.Label(self._session_unit, text=t("header.session"), style="MutedBg.TLabel").pack(
             side="right", padx=(0, 8)
         )
+        self._session_unit.pack(in_=top, side="right")
+        top.bind("<Configure>", self._on_top_configure)
 
         self._card_area = ttk.Frame(self, style="TFrame")
         self._card_area.pack(fill="x")
+        self._compact_rows: list[list[int]] = []
+        self._card_area.bind("<Configure>", self._on_cards_configure)
+
+    # ------------------------------------------------------------- top row
+
+    #: 上段の左側（ショット番号〜メタ情報）とセッション選択の間に最低限残す間隔
+    _TOP_GAP = 24
+
+    def _on_top_configure(self, event: tk.Event) -> None:
+        if event.widget is self._top and event.width > 1:
+            self._reflow_top(event.width)
+
+    def _reflow_top(self, width: int | None = None) -> None:
+        """セッション選択を上段に置くか 2 段目に落とすかを、実際の幅で決める。"""
+        if width is None:
+            width = self._top.winfo_width()
+            if width <= 1:
+                return
+        self.update_idletasks()
+        left = (
+            self.shot_label.winfo_reqwidth()
+            + 12
+            + self.time_label.winfo_reqwidth()
+            + 24
+            + self.meta_label.winfo_reqwidth()
+        )
+        need = left + self._TOP_GAP + self._session_unit.winfo_reqwidth()
+        second = need > width
+        if second == self._session_on_second_row:
+            return
+        self._session_on_second_row = second
+        self._session_unit.pack_forget()
+        if second:
+            self._top2.pack(fill="x", pady=(0, 8), after=self._top)
+            self._session_unit.pack(in_=self._top2, side="right")
+        else:
+            self._top2.pack_forget()
+            self._session_unit.pack(in_=self._top, side="right")
 
     # ---------------------------------------------------------------- channels
 
@@ -99,16 +151,13 @@ class HeaderPanel(ttk.Frame):
         # グループが示しているので、カード側で繰り返すと幅を食うだけになる
         specs.append((composite_label(composite_mode), theme.ACCENT, theme.FG))
 
+        self._compact_rows = []
         for pos, (name, color, text_color) in enumerate(specs):
             if self._compact:
+                # 配置は _place_compact() が幅から決める。固定の 5 列だと 4ch＋合成値
+                # で 978px を要求し、ハーフスナップの 960px で右端が切れる
                 card = CompactChannelCard(
                     self._card_area, name, color, text_color, unit=m.unit, digits=m.digits
-                )
-                card.grid(
-                    row=pos // COMPACT_PER_ROW,
-                    column=pos % COMPACT_PER_ROW,
-                    padx=(0, 8),
-                    pady=(0, 6),
                 )
             else:
                 # 大型カードは幅を均等に分け合う。固定幅だと最小ウィンドウ幅で
@@ -125,6 +174,36 @@ class HeaderPanel(ttk.Frame):
             else:
                 self._composite_card = card
         self._grid_columns = max(self._grid_columns, len(specs))
+        if self._compact:
+            self._place_compact()
+
+    def _all_cards(self) -> list[tk.Canvas]:
+        cards = list(self._cards)
+        if self._composite_card is not None:
+            cards.append(self._composite_card)
+        return cards
+
+    def _on_cards_configure(self, event: tk.Event) -> None:
+        if event.widget is self._card_area and event.width > 1 and self._compact:
+            self._place_compact(event.width)
+
+    def _place_compact(self, width: int | None = None) -> None:
+        """小型カードを、幅に収まる枚数ずつ段に分けて並べる。"""
+        if width is None:
+            width = self._card_area.winfo_width()
+        cards = self._all_cards()
+        # 配置前（幅 1）は 1 段に置いておき、実際の幅が分かった <Configure> で組み直す
+        avail = width if width > 1 else 10**9
+        rows = pack_rows([c.winfo_reqwidth() for c in cards], COMPACT_GAP, avail)
+        if rows == self._compact_rows:
+            return
+        self._compact_rows = rows
+        for c in cards:
+            c.grid_forget()
+        for r, row in enumerate(rows):
+            for col, i in enumerate(row):
+                cards[i].grid(row=r, column=col, padx=(0, COMPACT_GAP), pady=(0, 6))
+        self._grid_columns = max(self._grid_columns, max(len(row) for row in rows))
 
     # ------------------------------------------------------------------ update
 
@@ -171,6 +250,8 @@ class HeaderPanel(ttk.Frame):
                 + f"    {len(channels)} ch"
             )
         )
+        # メタ情報の長さが変わると上段の収まりも変わる
+        self._reflow_top()
 
         for pos, ch in enumerate(channels):
             value = latest.value(metric_key, ch)
