@@ -43,16 +43,17 @@ ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 WINDOW_SIZES = (32, 256)
 
 
+#: 文字のフォント。環境で変わると生成物の diff が出るので 1 つに決める。
+#: WSL（Ubuntu の fonts-dejavu-core）で作るのが正。Windows で回すなら
+#: 同じ ttf を置くか FONT を差し替えて、生成物の diff を見て判断する
+FONT = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+
+
 def _font(size: int) -> ImageFont.FreeTypeFont:
-    for name in ("DejaVuSans-Bold.ttf", "arialbd.ttf", "segoeuib.ttf"):
-        for base in (
-            Path("/usr/share/fonts/truetype/dejavu"),
-            Path("C:/Windows/Fonts"),
-        ):
-            p = base / name
-            if p.is_file():
-                return ImageFont.truetype(str(p), size)
-    return ImageFont.load_default()
+    if not FONT.is_file():
+        # load_default() に落とすとビットマップの小さな字で静かに壊れた絵ができる
+        raise RuntimeError(f"フォントが無い: {FONT}（WSL で apt install fonts-dejavu-core）")
+    return ImageFont.truetype(str(FONT), size)
 
 
 def draw() -> Image.Image:
